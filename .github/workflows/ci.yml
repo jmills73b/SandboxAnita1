@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+          else
+            echo "No package.json yet — Increment 0 will add one. Nothing to install."
+          fi
+
+      - name: Lint
+        run: |
+          if [ -f package.json ]; then
+            npm run lint --if-present
+          else
+            echo "No package.json yet — skipping lint."
+          fi
+
+      - name: Test
+        run: |
+          if [ -f package.json ]; then
+            npm test --if-present
+          else
+            echo "No package.json yet — skipping tests."
+          fi
