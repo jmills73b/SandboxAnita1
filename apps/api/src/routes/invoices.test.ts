@@ -343,6 +343,49 @@ describe("PATCH /api/invoices/:id", () => {
     const body = await res.json();
     expect(body.anitaIncome).toBeCloseTo(1500, 2);
   });
+
+  it("accepts an explicit settlement date, overriding the automatic today-stamp", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      {
+        method: "PATCH",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ dateSettledClient: "2026-04-02", dateSettledFirm: "2026-04-09" }),
+      },
+      fakeEnv({
+        existingInvoice: { ...EXISTING_INVOICE, status: "Complete" },
+        clientName: "Smith",
+      }),
+    );
+    const body = await res.json();
+    expect(body.dateSettledClient).toBe("2026-04-02");
+    expect(body.dateSettledFirm).toBe("2026-04-09");
+  });
+
+  it("accepts clearing a settlement date explicitly", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      {
+        method: "PATCH",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ dateSettledFirm: null }),
+      },
+      fakeEnv({
+        existingInvoice: {
+          ...EXISTING_INVOICE,
+          status: "Complete",
+          date_settled_client: "2026-04-05",
+          date_settled_firm: "2026-04-15",
+        },
+        clientName: "Smith",
+      }),
+    );
+    const body = await res.json();
+    expect(body.dateSettledClient).toBe("2026-04-05");
+    expect(body.dateSettledFirm).toBeNull();
+  });
 });
 
 describe("DELETE /api/invoices/:id", () => {

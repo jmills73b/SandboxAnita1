@@ -131,6 +131,8 @@ invoices.patch("/:id", async (c) => {
     totalAmount?: number;
     reference?: string | null;
     status?: string;
+    dateSettledClient?: string | null;
+    dateSettledFirm?: string | null;
   }>();
 
   if (body.status !== undefined && !isValidInvoiceStatus(body.status)) {
@@ -147,16 +149,21 @@ invoices.patch("/:id", async (c) => {
   const status = body.status ?? existing.status;
   const anitaIncome = body.totalAmount !== undefined ? calculateAnitaIncome(totalAmount) : existing.anita_income;
 
-  // Settlement dates track the status rather than being set independently:
-  // reaching a stage for the first time stamps it with today, and stepping
-  // back below a stage (correcting a mistake) clears its date.
+  // Settlement dates default to tracking the status — reaching a stage for
+  // the first time stamps it with today, and stepping back below a stage
+  // (correcting a mistake) clears its date. Either date can also be sent
+  // explicitly (e.g. from the edit form, to correct it to the real payment
+  // date rather than whenever the status happened to get updated), which
+  // takes priority over that automatic behaviour.
   const reachedIndex = INVOICE_STATUSES.indexOf(status as (typeof INVOICE_STATUSES)[number]);
-  const dateSettledClient =
+  const autoSettledClient =
     reachedIndex >= INVOICE_STATUSES.indexOf("Settled by client")
       ? (existing.date_settled_client ?? today())
       : null;
-  const dateSettledFirm =
+  const autoSettledFirm =
     reachedIndex >= INVOICE_STATUSES.indexOf("Complete") ? (existing.date_settled_firm ?? today()) : null;
+  const dateSettledClient = body.dateSettledClient !== undefined ? body.dateSettledClient : autoSettledClient;
+  const dateSettledFirm = body.dateSettledFirm !== undefined ? body.dateSettledFirm : autoSettledFirm;
 
   const updated = await c.env.DB.prepare(
     `UPDATE invoices

@@ -347,6 +347,44 @@ button.client-link:hover {
   padding: 6px 8px;
 }
 
+/* The edit form lives outside the ledger table on purpose — the table
+   sits in a horizontally-scrolling container on phones, and a form
+   trapped in there would need side-scrolling just to reach its own
+   Save button. Out here it wraps normally at any width. */
+.edit-panel {
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: var(--paper-raised);
+}
+
+.edit-panel-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.row-editing {
+  background: var(--paper);
+}
+
 .form {
   display: flex;
   flex-direction: column;
