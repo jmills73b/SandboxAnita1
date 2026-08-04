@@ -6,6 +6,4 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "anita-invoice-tracker"
-# Placeholder — replace with the real ID once `wrangler d1 create anita-invoice-tracker`
-# has been run against a real Cloudflare account (needs the API token from story 10.1).
-database_id = "REPLACE_AFTER_WRANGLER_D1_CREATE"
+database_id = "d852a373-d2e7-496f-b08f-2ba20d588189"
