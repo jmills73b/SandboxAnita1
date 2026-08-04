@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SetupPage } from "./SetupPage";
 import { LoginPage } from "./LoginPage";
-import { ClientsPage } from "./ClientsPage";
+import { SignedInApp } from "./SignedInApp";
 import { getSetupStatus, me } from "./api";
 
 type AppStatus =
@@ -43,7 +43,7 @@ export default function App() {
   }
 
   return (
-    <ClientsPage
+    <SignedInApp
       email={status.email}
       onLoggedOut={() => setStatus({ kind: "signed-out" })}
     />

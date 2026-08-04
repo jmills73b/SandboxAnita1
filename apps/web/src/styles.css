@@ -20,7 +20,7 @@ body {
 }
 
 .page {
-  max-width: 480px;
+  max-width: 720px;
   margin: 0 auto;
   padding: 24px 20px 60px;
 }
@@ -59,6 +59,80 @@ h1 {
 
 .who {
   color: var(--ink-soft);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tab {
+  background: transparent;
+  color: var(--ink-soft);
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.tab-active {
+  background: var(--accent);
+  color: white;
+}
+
+.quick-add {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.quick-add input {
+  flex: 1;
+  min-width: 130px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  min-width: 480px;
+}
+
+.ledger th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.ledger td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.status {
+  display: inline-block;
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--border);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.status-complete {
+  background: #dcece4;
+  color: var(--accent);
 }
 
 .form {

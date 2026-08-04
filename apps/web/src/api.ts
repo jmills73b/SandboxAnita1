@@ -51,3 +51,29 @@ export function getClients(): Promise<Client[]> {
 export function addClient(name: string): Promise<Client> {
   return request("/api/clients", { method: "POST", body: JSON.stringify({ name }) });
 }
+
+export interface Invoice {
+  id: number;
+  invoiceDate: string;
+  clientId: number;
+  clientName: string;
+  totalAmount: number;
+  anitaIncome: number;
+  status: string;
+  reference: string | null;
+  dateSettledClient: string | null;
+  dateSettledFirm: string | null;
+  lagDays: number | null;
+}
+
+export function getInvoices(): Promise<Invoice[]> {
+  return request("/api/invoices");
+}
+
+export function addInvoice(input: {
+  invoiceDate: string;
+  clientId: number;
+  totalAmount: number;
+}): Promise<Invoice> {
+  return request("/api/invoices", { method: "POST", body: JSON.stringify(input) });
+}
