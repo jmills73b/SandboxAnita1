@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import clients from "./routes/clients";
+import invoices from "./routes/invoices";
 
 export interface Env {
   DB: D1Database;
@@ -27,5 +28,6 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.route("/api", auth);
 app.route("/api/clients", clients);
+app.route("/api/invoices", invoices);
 
 export default app;
