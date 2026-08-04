@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { calculateAnitaIncome } from "@sandboxanita1/core";
+import { calculateAnitaIncome, INVOICE_STATUSES, isValidInvoiceStatus } from "@sandboxanita1/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 
@@ -42,6 +42,10 @@ function lagDays(invoiceDate: string, dateSettledFirm: string | null): number | 
   if (!dateSettledFirm) return null;
   const ms = new Date(dateSettledFirm).getTime() - new Date(invoiceDate).getTime();
   return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
+function today(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 invoices.get("/", async (c) => {
@@ -101,6 +105,93 @@ invoices.post("/", async (c) => {
     .first<{ name: string }>();
 
   return c.json(toInvoice({ ...created, client_name: client?.name ?? "" }), 201);
+});
+
+invoices.patch("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ error: "Invalid invoice id" }, 400);
+  }
+
+  const existing = await c.env.DB.prepare(
+    `SELECT id, invoice_date, client_id, total_amount, anita_income, status, reference,
+            date_settled_client, date_settled_firm
+     FROM invoices WHERE id = ?`,
+  )
+    .bind(id)
+    .first<Omit<InvoiceRow, "client_name">>();
+
+  if (!existing) {
+    return c.json({ error: "Invoice not found" }, 404);
+  }
+
+  const body = await c.req.json<{
+    invoiceDate?: string;
+    clientId?: number;
+    totalAmount?: number;
+    reference?: string | null;
+    status?: string;
+  }>();
+
+  if (body.status !== undefined && !isValidInvoiceStatus(body.status)) {
+    return c.json({ error: "Invalid status" }, 400);
+  }
+  if (body.totalAmount !== undefined && (typeof body.totalAmount !== "number" || body.totalAmount <= 0)) {
+    return c.json({ error: "Enter an amount greater than £0" }, 400);
+  }
+
+  const invoiceDate = body.invoiceDate ?? existing.invoice_date;
+  const clientId = body.clientId ?? existing.client_id;
+  const totalAmount = body.totalAmount ?? existing.total_amount;
+  const reference = body.reference !== undefined ? body.reference : existing.reference;
+  const status = body.status ?? existing.status;
+  const anitaIncome = body.totalAmount !== undefined ? calculateAnitaIncome(totalAmount) : existing.anita_income;
+
+  // Settlement dates track the status rather than being set independently:
+  // reaching a stage for the first time stamps it with today, and stepping
+  // back below a stage (correcting a mistake) clears its date.
+  const reachedIndex = INVOICE_STATUSES.indexOf(status as (typeof INVOICE_STATUSES)[number]);
+  const dateSettledClient =
+    reachedIndex >= INVOICE_STATUSES.indexOf("Settled by client")
+      ? (existing.date_settled_client ?? today())
+      : null;
+  const dateSettledFirm =
+    reachedIndex >= INVOICE_STATUSES.indexOf("Complete") ? (existing.date_settled_firm ?? today()) : null;
+
+  const updated = await c.env.DB.prepare(
+    `UPDATE invoices
+     SET client_id = ?, invoice_date = ?, total_amount = ?, anita_income = ?, reference = ?,
+         status = ?, date_settled_client = ?, date_settled_firm = ?
+     WHERE id = ?
+     RETURNING id, invoice_date, client_id, total_amount, anita_income, status, reference,
+               date_settled_client, date_settled_firm`,
+  )
+    .bind(clientId, invoiceDate, totalAmount, anitaIncome, reference, status, dateSettledClient, dateSettledFirm, id)
+    .first<Omit<InvoiceRow, "client_name">>();
+
+  if (!updated) {
+    return c.json({ error: "Could not update the invoice" }, 500);
+  }
+
+  const client = await c.env.DB.prepare("SELECT name FROM clients WHERE id = ?")
+    .bind(clientId)
+    .first<{ name: string }>();
+
+  return c.json(toInvoice({ ...updated, client_name: client?.name ?? "" }));
+});
+
+invoices.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ error: "Invalid invoice id" }, 400);
+  }
+
+  const result = await c.env.DB.prepare("DELETE FROM invoices WHERE id = ?").bind(id).run();
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Invoice not found" }, 404);
+  }
+
+  return c.json({ ok: true });
 });
 
 export default invoices;

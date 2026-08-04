@@ -187,8 +187,28 @@ button.brand {
   min-width: 130px;
 }
 
+/* The ledger now has enough columns (status, actions) that it usually
+   needs to scroll sideways on a phone. Without a hint for that, the
+   status dropdown and Edit/Delete buttons just look missing — this is
+   the standard scroll-shadow trick: two gradients scroll with the
+   content (masking themselves once you're flush with an edge) and two
+   stay fixed to cast the actual shadow, so it only shows on the side
+   there's still more to see. */
 .table-scroll {
   overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--paper) 50%, rgba(255, 255, 255, 0)) 0 0,
+    linear-gradient(to left, var(--paper) 50%, rgba(255, 255, 255, 0)) 100% 0,
+    linear-gradient(to right, var(--line-strong), rgba(255, 255, 255, 0)) 0 0,
+    linear-gradient(to left, var(--line-strong), rgba(255, 255, 255, 0)) 100% 0;
+  background-repeat: no-repeat;
+  background-color: var(--paper);
+  background-size:
+    24px 100%,
+    24px 100%,
+    8px 100%,
+    8px 100%;
+  background-attachment: local, local, scroll, scroll;
 }
 
 .ledger {
@@ -269,6 +289,41 @@ button.client-link:hover {
 .status-settled-by-client,
 .status-invoice-sent-to-intermediary-firm {
   background: transparent;
+}
+
+/* The status pill doubles as a <select> in the editable ledger — same
+   look, but with the browser's native picker behind it. */
+.status-select {
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.row-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.row-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+}
+
+.row-actions button:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.row-actions button.danger {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.input-compact {
+  font-size: 14px;
+  padding: 6px 8px;
 }
 
 .form {

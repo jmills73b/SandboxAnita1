@@ -17,11 +17,19 @@ async function sessionCookie(): Promise<string> {
 // covers three distinct statements per POST (firm lookup, invoice insert,
 // client name lookup), branched on a snippet of the SQL text.
 function fakeEnv(
-  options: { listRows?: unknown[]; clientName?: string; firmId?: number | null } = {},
+  options: {
+    listRows?: unknown[];
+    clientName?: string;
+    firmId?: number | null;
+    existingInvoice?: Record<string, unknown> | null;
+    deleteChanges?: number;
+  } = {},
 ): Env {
   const listRows = options.listRows ?? [];
   const clientName = options.clientName ?? "Smith";
   const firmId = options.firmId === undefined ? 1 : options.firmId;
+  const existingInvoice = options.existingInvoice;
+  const deleteChanges = options.deleteChanges ?? 1;
 
   return {
     SESSION_SECRET: SECRET,
@@ -51,10 +59,38 @@ function fakeEnv(
                 date_settled_firm: null,
               } as T;
             }
+            if (sql.startsWith("SELECT id, invoice_date")) {
+              return (existingInvoice ?? null) as T;
+            }
+            if (sql.includes("UPDATE invoices")) {
+              const [
+                clientId,
+                invoiceDate,
+                totalAmount,
+                anitaIncome,
+                reference,
+                status,
+                dateSettledClient,
+                dateSettledFirm,
+                id,
+              ] = boundArgs;
+              return {
+                id,
+                client_id: clientId,
+                invoice_date: invoiceDate,
+                total_amount: totalAmount,
+                anita_income: anitaIncome,
+                reference,
+                status,
+                date_settled_client: dateSettledClient,
+                date_settled_firm: dateSettledFirm,
+              } as T;
+            }
             if (sql.includes("SELECT name FROM clients")) return { name: clientName } as T;
             return null;
           },
           all: async <T,>() => ({ results: listRows as T[], success: true, meta: {} }),
+          run: async () => ({ success: true, meta: { changes: deleteChanges } }),
         };
         return statement;
       },
@@ -189,5 +225,150 @@ describe("POST /api/invoices", () => {
     expect(body.anitaIncome).toBeCloseTo(750, 2);
     expect(body.clientName).toBe("Smith");
     expect(body.status).toBe("In progress");
+  });
+});
+
+const EXISTING_INVOICE = {
+  id: 1,
+  invoice_date: "2026-04-01",
+  client_id: 1,
+  total_amount: 1000,
+  anita_income: 750,
+  status: "In progress",
+  reference: null,
+  date_settled_client: null,
+  date_settled_firm: null,
+};
+
+describe("PATCH /api/invoices/:id", () => {
+  it("rejects a request with no session", async () => {
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", body: JSON.stringify({ status: "Complete" }) },
+      fakeEnv({ existingInvoice: EXISTING_INVOICE }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("404s for an invoice that doesn't exist", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/999",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "Complete" }) },
+      fakeEnv({ existingInvoice: null }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects an invalid status", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "Cancelled" }) },
+      fakeEnv({ existingInvoice: EXISTING_INVOICE }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("stamps date_settled_client on reaching Settled by client", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      {
+        method: "PATCH",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ status: "Settled by client" }),
+      },
+      fakeEnv({ existingInvoice: EXISTING_INVOICE, clientName: "Smith" }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("Settled by client");
+    expect(body.dateSettledClient).toBeTruthy();
+    expect(body.dateSettledFirm).toBeNull();
+  });
+
+  it("stamps date_settled_firm on reaching Complete", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "Complete" }) },
+      fakeEnv({
+        existingInvoice: { ...EXISTING_INVOICE, status: "Settled by client", date_settled_client: "2026-04-05" },
+        clientName: "Smith",
+      }),
+    );
+    const body = await res.json();
+    expect(body.dateSettledClient).toBe("2026-04-05");
+    expect(body.dateSettledFirm).toBeTruthy();
+  });
+
+  it("clears settlement dates when moving status back", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "In progress" }) },
+      fakeEnv({
+        existingInvoice: {
+          ...EXISTING_INVOICE,
+          status: "Complete",
+          date_settled_client: "2026-04-05",
+          date_settled_firm: "2026-04-15",
+        },
+        clientName: "Smith",
+      }),
+    );
+    const body = await res.json();
+    expect(body.dateSettledClient).toBeNull();
+    expect(body.dateSettledFirm).toBeNull();
+  });
+
+  it("rejects a £0 amount", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ totalAmount: 0 }) },
+      fakeEnv({ existingInvoice: EXISTING_INVOICE }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("recalculates anitaIncome when the amount changes", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ totalAmount: 2000 }) },
+      fakeEnv({ existingInvoice: EXISTING_INVOICE, clientName: "Smith" }),
+    );
+    const body = await res.json();
+    expect(body.anitaIncome).toBeCloseTo(1500, 2);
+  });
+});
+
+describe("DELETE /api/invoices/:id", () => {
+  it("rejects a request with no session", async () => {
+    const res = await app.request("/api/invoices/1", { method: "DELETE" }, fakeEnv());
+    expect(res.status).toBe(401);
+  });
+
+  it("deletes an invoice", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({ deleteChanges: 1 }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("404s for an invoice that doesn't exist", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/999",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({ deleteChanges: 0 }),
+    );
+    expect(res.status).toBe(404);
   });
 });

@@ -1,5 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { addClient, addInvoice, getClients, getInvoices, type Client, type Invoice } from "./api";
+import { INVOICE_STATUSES } from "@sandboxanita1/core";
+import {
+  addClient,
+  addInvoice,
+  deleteInvoice,
+  getClients,
+  getInvoices,
+  updateInvoice,
+  type Client,
+  type Invoice,
+} from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -24,6 +34,12 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>({ kind: "ledger" });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editClientName, setEditClientName] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
   async function refresh() {
     setLoading(true);
@@ -74,6 +90,72 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
       setError(err instanceof Error ? err.message : "Couldn't save that invoice");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleStatusChange(invoice: Invoice, status: string) {
+    try {
+      await updateInvoice(invoice.id, { status });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that invoice's status");
+    }
+  }
+
+  function startEdit(invoice: Invoice) {
+    setEditingId(invoice.id);
+    setEditDate(invoice.invoiceDate);
+    setEditClientName(invoice.clientName);
+    setEditAmount(String(invoice.totalAmount));
+    setEditError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditError(null);
+  }
+
+  async function saveEdit(id: number) {
+    setEditError(null);
+
+    const trimmedName = editClientName.trim();
+    const amount = Number(editAmount);
+
+    if (!trimmedName) {
+      setEditError("Enter a client name");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setEditError("Enter an amount greater than £0");
+      return;
+    }
+
+    setEditSubmitting(true);
+    try {
+      const existing = clients.find((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
+      const clientId = existing ? existing.id : (await addClient(trimmedName)).id;
+
+      await updateInvoice(id, { invoiceDate: editDate, clientId, totalAmount: amount });
+      setEditingId(null);
+      await refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  async function handleDelete(invoice: Invoice) {
+    const confirmed = window.confirm(
+      `Delete the ${money.format(invoice.totalAmount)} invoice for ${invoice.clientName}?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteInvoice(invoice.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that invoice");
     }
   }
 
@@ -160,28 +242,96 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                 <th>Amount</th>
                 <th>Your share</th>
                 <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice) => (
-                <tr key={invoice.id}>
-                  <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="client-link"
-                      onClick={() => setView({ kind: "client", clientId: invoice.clientId })}
-                    >
-                      {invoice.clientName}
-                    </button>
-                  </td>
-                  <td>{money.format(invoice.totalAmount)}</td>
-                  <td>{money.format(invoice.anitaIncome)}</td>
-                  <td>
-                    <span className={`status ${statusClass(invoice.status)}`}>{invoice.status}</span>
-                  </td>
-                </tr>
-              ))}
+              {invoices.map((invoice) =>
+                editingId === invoice.id ? (
+                  <tr key={invoice.id}>
+                    <td>
+                      <input
+                        type="date"
+                        className="input-compact"
+                        value={editDate}
+                        onChange={(event) => setEditDate(event.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        list="client-options"
+                        className="input-compact"
+                        value={editClientName}
+                        onChange={(event) => setEditClientName(event.target.value)}
+                      />
+                    </td>
+                    <td colSpan={2}>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        step="0.01"
+                        min="0.01"
+                        className="input-compact"
+                        value={editAmount}
+                        onChange={(event) => setEditAmount(event.target.value)}
+                      />
+                      {editError && (
+                        <p className="error" role="alert">
+                          {editError}
+                        </p>
+                      )}
+                    </td>
+                    <td colSpan={2}>
+                      <div className="row-actions">
+                        <button type="button" onClick={() => saveEdit(invoice.id)} disabled={editSubmitting}>
+                          {editSubmitting ? "Saving…" : "Save"}
+                        </button>
+                        <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
+                          Cancel
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={invoice.id}>
+                    <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="client-link"
+                        onClick={() => setView({ kind: "client", clientId: invoice.clientId })}
+                      >
+                        {invoice.clientName}
+                      </button>
+                    </td>
+                    <td>{money.format(invoice.totalAmount)}</td>
+                    <td>{money.format(invoice.anitaIncome)}</td>
+                    <td>
+                      <select
+                        className={`status status-select ${statusClass(invoice.status)}`}
+                        value={invoice.status}
+                        onChange={(event) => handleStatusChange(invoice, event.target.value)}
+                      >
+                        {INVOICE_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <div className="row-actions">
+                        <button type="button" onClick={() => startEdit(invoice)}>
+                          Edit
+                        </button>
+                        <button type="button" className="danger" onClick={() => handleDelete(invoice)}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
         </div>

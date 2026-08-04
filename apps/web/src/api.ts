@@ -77,3 +77,19 @@ export function addInvoice(input: {
 }): Promise<Invoice> {
   return request("/api/invoices", { method: "POST", body: JSON.stringify(input) });
 }
+
+export function updateInvoice(
+  id: number,
+  patch: Partial<{
+    invoiceDate: string;
+    clientId: number;
+    totalAmount: number;
+    status: string;
+  }>,
+): Promise<Invoice> {
+  return request(`/api/invoices/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteInvoice(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/invoices/${id}`, { method: "DELETE" });
+}
