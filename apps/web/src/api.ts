@@ -95,3 +95,21 @@ export function updateInvoice(
 export function deleteInvoice(id: number): Promise<{ ok: boolean }> {
   return request(`/api/invoices/${id}`, { method: "DELETE" });
 }
+
+export interface TaxYearSettings {
+  taxYear: string;
+  startDate: string;
+  monthlyTarget: number | null;
+  splitPercentage: number | null;
+}
+
+export function getCurrentTaxYearSettings(): Promise<TaxYearSettings> {
+  return request("/api/tax-year-settings/current");
+}
+
+export function setMonthlyTarget(monthlyTarget: number): Promise<TaxYearSettings> {
+  return request("/api/tax-year-settings/current", {
+    method: "POST",
+    body: JSON.stringify({ monthlyTarget }),
+  });
+}
