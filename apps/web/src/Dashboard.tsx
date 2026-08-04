@@ -9,7 +9,7 @@ const TILES = [
     key: "performance",
     name: "Performance & Targets",
     desc: "See where you stand against this month's target.",
-    active: false,
+    active: true,
   },
   {
     key: "expenses",
@@ -25,7 +25,9 @@ const TILES = [
   },
 ] as const;
 
-export function Dashboard({ onSelectInvoices }: { onSelectInvoices: () => void }) {
+export type DashboardTile = (typeof TILES)[number]["key"];
+
+export function Dashboard({ onSelect }: { onSelect: (tile: DashboardTile) => void }) {
   return (
     <>
       <h1 className="sr-only">Dashboard</h1>
@@ -36,7 +38,7 @@ export function Dashboard({ onSelectInvoices }: { onSelectInvoices: () => void }
               key={tile.key}
               type="button"
               className="hero-tile"
-              onClick={onSelectInvoices}
+              onClick={() => onSelect(tile.key)}
             >
               <div className="tile-top">
                 <span className="tile-name">{tile.name}</span>
