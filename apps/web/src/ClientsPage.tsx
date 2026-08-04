@@ -1,13 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { addClient, getClients, logout, type Client } from "./api";
+import { addClient, getClients, type Client } from "./api";
 
-export function ClientsPage({
-  email,
-  onLoggedOut,
-}: {
-  email: string;
-  onLoggedOut: () => void;
-}) {
+export function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,17 +35,8 @@ export function ClientsPage({
   }
 
   return (
-    <main className="page">
-      <header className="page-header">
-        <h1>Clients</h1>
-        <div className="page-header-right">
-          <span className="who">{email}</span>
-          <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
-            Sign out
-          </button>
-        </div>
-      </header>
-
+    <>
+      <h1 className="sr-only">Clients</h1>
       <form onSubmit={handleSubmit} className="form form-inline">
         <label className="sr-only" htmlFor="client-name">
           Client name
@@ -83,6 +68,6 @@ export function ClientsPage({
           ))}
         </ul>
       )}
-    </main>
+    </>
   );
 }
