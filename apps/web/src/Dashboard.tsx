@@ -1,0 +1,59 @@
+const TILES = [
+  {
+    key: "invoices",
+    name: "Invoice Management",
+    desc: "Log invoices, track status, and see performance by client.",
+    active: true,
+  },
+  {
+    key: "performance",
+    name: "Performance & Targets",
+    desc: "See where you stand against this month's target.",
+    active: false,
+  },
+  {
+    key: "expenses",
+    name: "Expenses",
+    desc: "Log and categorise business expenses.",
+    active: false,
+  },
+  {
+    key: "tax",
+    name: "Tax & NI Estimate",
+    desc: "Estimate this year's income tax and National Insurance.",
+    active: false,
+  },
+] as const;
+
+export function Dashboard({ onSelectInvoices }: { onSelectInvoices: () => void }) {
+  return (
+    <>
+      <h1 className="sr-only">Dashboard</h1>
+      <div className="hero-grid">
+        {TILES.map((tile) =>
+          tile.active ? (
+            <button
+              key={tile.key}
+              type="button"
+              className="hero-tile"
+              onClick={onSelectInvoices}
+            >
+              <div className="tile-top">
+                <span className="tile-name">{tile.name}</span>
+              </div>
+              <p className="tile-desc">{tile.desc}</p>
+            </button>
+          ) : (
+            <div key={tile.key} className="hero-tile upcoming">
+              <div className="tile-top">
+                <span className="tile-name">{tile.name}</span>
+                <span className="tile-status">Coming soon</span>
+              </div>
+              <p className="tile-desc">{tile.desc}</p>
+            </div>
+          ),
+        )}
+      </div>
+    </>
+  );
+}

@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { logout } from "./api";
+import { Dashboard } from "./Dashboard";
 import { InvoicesPage } from "./InvoicesPage";
-import { ClientsPage } from "./ClientsPage";
 import { Brand } from "./Brand";
 
-type Tab = "invoices" | "clients";
+type Screen = { kind: "hub" } | { kind: "invoices" };
 
 export function SignedInApp({
   email,
@@ -13,30 +13,12 @@ export function SignedInApp({
   email: string;
   onLoggedOut: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("invoices");
+  const [screen, setScreen] = useState<Screen>({ kind: "hub" });
 
   return (
     <main className="page">
       <header className="page-header">
-        <div className="page-header-left">
-          <Brand />
-          <nav className="tabs">
-            <button
-              type="button"
-              className={tab === "invoices" ? "tab tab-active" : "tab"}
-              onClick={() => setTab("invoices")}
-            >
-              Invoices
-            </button>
-            <button
-              type="button"
-              className={tab === "clients" ? "tab tab-active" : "tab"}
-              onClick={() => setTab("clients")}
-            >
-              Clients
-            </button>
-          </nav>
-        </div>
+        <Brand onClick={screen.kind === "hub" ? undefined : () => setScreen({ kind: "hub" })} />
         <div className="page-header-right">
           <span className="who">{email}</span>
           <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
@@ -44,7 +26,11 @@ export function SignedInApp({
           </button>
         </div>
       </header>
-      {tab === "invoices" ? <InvoicesPage /> : <ClientsPage />}
+      {screen.kind === "hub" ? (
+        <Dashboard onSelectInvoices={() => setScreen({ kind: "invoices" })} />
+      ) : (
+        <InvoicesPage onBack={() => setScreen({ kind: "hub" })} />
+      )}
     </main>
   );
 }

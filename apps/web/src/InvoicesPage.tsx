@@ -12,7 +12,9 @@ function statusClass(status: string): string {
   return `status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }
 
-export function InvoicesPage() {
+type View = { kind: "ledger" } | { kind: "client"; clientId: number };
+
+export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [invoiceDate, setInvoiceDate] = useState(today());
@@ -21,6 +23,7 @@ export function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<View>({ kind: "ledger" });
 
   async function refresh() {
     setLoading(true);
@@ -74,8 +77,21 @@ export function InvoicesPage() {
     }
   }
 
+  if (view.kind === "client") {
+    return (
+      <ClientDetail
+        clientId={view.clientId}
+        invoices={invoices}
+        onBack={() => setView({ kind: "ledger" })}
+      />
+    );
+  }
+
   return (
     <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
       <h1 className="sr-only">Invoices</h1>
       <form onSubmit={handleSubmit} className="quick-add">
         <label className="sr-only" htmlFor="invoice-date">
@@ -150,7 +166,93 @@ export function InvoicesPage() {
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
                   <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
-                  <td>{invoice.clientName}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="client-link"
+                      onClick={() => setView({ kind: "client", clientId: invoice.clientId })}
+                    >
+                      {invoice.clientName}
+                    </button>
+                  </td>
+                  <td>{money.format(invoice.totalAmount)}</td>
+                  <td>{money.format(invoice.anitaIncome)}</td>
+                  <td>
+                    <span className={`status ${statusClass(invoice.status)}`}>{invoice.status}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ClientDetail({
+  clientId,
+  invoices,
+  onBack,
+}: {
+  clientId: number;
+  invoices: Invoice[];
+  onBack: () => void;
+}) {
+  const clientInvoices = invoices.filter((invoice) => invoice.clientId === clientId);
+  const clientName = clientInvoices[0]?.clientName ?? "Client";
+  const lifetimeBilled = clientInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
+  const lifetimeShare = clientInvoices.reduce((sum, invoice) => sum + invoice.anitaIncome, 0);
+  const lagValues = clientInvoices
+    .map((invoice) => invoice.lagDays)
+    .filter((days): days is number => days !== null);
+  const avgLagDays =
+    lagValues.length > 0 ? Math.round(lagValues.reduce((sum, days) => sum + days, 0) / lagValues.length) : null;
+
+  return (
+    <>
+      <h1 className="sr-only">{clientName}</h1>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← All invoices
+      </button>
+      <div className="client-header">
+        <h2>{clientName}</h2>
+      </div>
+      <div className="client-stats">
+        <div className="client-stat">
+          <div className="n">{money.format(lifetimeBilled)}</div>
+          <div className="l">Lifetime billed</div>
+        </div>
+        <div className="client-stat">
+          <div className="n">{money.format(lifetimeShare)}</div>
+          <div className="l">Lifetime share</div>
+        </div>
+        <div className="client-stat">
+          <div className="n">{clientInvoices.length}</div>
+          <div className="l">Invoices</div>
+        </div>
+        <div className="client-stat">
+          <div className="n">{avgLagDays !== null ? `${avgLagDays}d` : "—"}</div>
+          <div className="l">Avg. lag</div>
+        </div>
+      </div>
+      {clientInvoices.length === 0 ? (
+        <p className="empty">No invoices for this client yet.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Your share</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {clientInvoices.map((invoice) => (
+                <tr key={invoice.id}>
+                  <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
                   <td>{money.format(invoice.totalAmount)}</td>
                   <td>{money.format(invoice.anitaIncome)}</td>
                   <td>
