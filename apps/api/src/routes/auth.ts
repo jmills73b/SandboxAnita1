@@ -55,10 +55,14 @@ auth.post("/login", async (c) => {
     { userId: user.id, exp: Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS },
     c.env.SESSION_SECRET,
   );
+  // SameSite=None (not Strict) because the frontend (Pages) and this API
+  // (Workers) are on different domains — Strict would silently stop the
+  // browser sending the cookie back at all. Secure=true is required for
+  // None, and everything here is HTTPS-only anyway.
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
-    sameSite: "Strict",
+    sameSite: "None",
     path: "/",
     maxAge: SESSION_LIFETIME_SECONDS,
   });
@@ -76,7 +80,7 @@ auth.get("/me", requireAuth, async (c) => {
 });
 
 auth.post("/logout", (c) => {
-  deleteCookie(c, SESSION_COOKIE, { path: "/" });
+  deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true, sameSite: "None" });
   return c.json({ ok: true });
 });
 
