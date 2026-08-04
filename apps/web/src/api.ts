@@ -24,6 +24,14 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export function getSetupStatus(): Promise<{ completed: boolean }> {
+  return request("/api/setup/status");
+}
+
+export function setup(email: string, password: string): Promise<{ email: string }> {
+  return request("/api/setup", { method: "POST", body: JSON.stringify({ email, password }) });
+}
+
 export function login(email: string, password: string): Promise<{ email: string }> {
   return request("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }

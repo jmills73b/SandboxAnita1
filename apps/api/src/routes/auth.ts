@@ -5,13 +5,27 @@ import type { AppEnv } from "../index";
 
 const SESSION_COOKIE = "session";
 const SESSION_LIFETIME_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const MIN_PASSWORD_LENGTH = 8;
 
 const auth = new Hono<AppEnv>();
+
+// GET, not requireAuth-protected: the frontend needs to ask this before
+// anyone can possibly be signed in yet. Reveals only whether an account
+// exists, nothing else.
+auth.get("/setup/status", async (c) => {
+  const existing = await c.env.DB.prepare("SELECT COUNT(*) as count FROM users").first<{
+    count: number;
+  }>();
+  return c.json({ completed: (existing?.count ?? 0) > 0 });
+});
 
 auth.post("/setup", async (c) => {
   const { email, password } = await c.req.json<{ email?: string; password?: string }>();
   if (!email || !password) {
     return c.json({ error: "Email and password are required" }, 400);
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
   }
 
   // This only ever creates the first account. Once one exists, it's a
@@ -25,11 +39,20 @@ auth.post("/setup", async (c) => {
   }
 
   const passwordHash = await hashPassword(password);
-  await c.env.DB.prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)")
+  const created = await c.env.DB.prepare(
+    "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email",
+  )
     .bind(email, passwordHash)
-    .run();
+    .first<{ id: number; email: string }>();
 
-  return c.json({ email }, 201);
+  if (!created) {
+    return c.json({ error: "Could not create the account" }, 500);
+  }
+
+  // Signed straight in — no separate login step after creating the one
+  // account this app will ever have.
+  await issueSession(c, created.id);
+  return c.json({ email: created.email }, 201);
 });
 
 auth.post("/login", async (c) => {
@@ -51,22 +74,7 @@ auth.post("/login", async (c) => {
     return c.json({ error: "Invalid email or password" }, 401);
   }
 
-  const token = await createSessionToken(
-    { userId: user.id, exp: Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS },
-    c.env.SESSION_SECRET,
-  );
-  // SameSite=None (not Strict) because the frontend (Pages) and this API
-  // (Workers) are on different domains — Strict would silently stop the
-  // browser sending the cookie back at all. Secure=true is required for
-  // None, and everything here is HTTPS-only anyway.
-  setCookie(c, SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "None",
-    path: "/",
-    maxAge: SESSION_LIFETIME_SECONDS,
-  });
-
+  await issueSession(c, user.id);
   return c.json({ email: user.email });
 });
 
@@ -83,6 +91,24 @@ auth.post("/logout", (c) => {
   deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true, sameSite: "None" });
   return c.json({ ok: true });
 });
+
+async function issueSession(c: Context<AppEnv>, userId: number) {
+  const token = await createSessionToken(
+    { userId, exp: Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS },
+    c.env.SESSION_SECRET,
+  );
+  // SameSite=None (not Strict) because the frontend (Pages) and this API
+  // (Workers) are on different domains — Strict would silently stop the
+  // browser sending the cookie back at all. Secure=true is required for
+  // None, and everything here is HTTPS-only anyway.
+  setCookie(c, SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "None",
+    path: "/",
+    maxAge: SESSION_LIFETIME_SECONDS,
+  });
+}
 
 export async function requireAuth(c: Context<AppEnv>, next: Next) {
   const token = getCookie(c, SESSION_COOKIE);
