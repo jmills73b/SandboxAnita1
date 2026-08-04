@@ -1,25 +1,51 @@
 import { useEffect, useState } from "react";
+import { SetupPage } from "./SetupPage";
 import { LoginPage } from "./LoginPage";
 import { ClientsPage } from "./ClientsPage";
-import { me } from "./api";
+import { getSetupStatus, me } from "./api";
+
+type AppStatus =
+  | { kind: "checking" }
+  | { kind: "needs-setup" }
+  | { kind: "signed-out" }
+  | { kind: "signed-in"; email: string };
 
 export default function App() {
-  // undefined = still checking; null = signed out; string = signed-in email
-  const [email, setEmail] = useState<string | null | undefined>(undefined);
+  const [status, setStatus] = useState<AppStatus>({ kind: "checking" });
 
   useEffect(() => {
-    me()
-      .then((user) => setEmail(user.email))
-      .catch(() => setEmail(null));
+    getSetupStatus()
+      .then(async ({ completed }) => {
+        if (!completed) {
+          setStatus({ kind: "needs-setup" });
+          return;
+        }
+        try {
+          const user = await me();
+          setStatus({ kind: "signed-in", email: user.email });
+        } catch {
+          setStatus({ kind: "signed-out" });
+        }
+      })
+      .catch(() => setStatus({ kind: "signed-out" }));
   }, []);
 
-  if (email === undefined) {
+  if (status.kind === "checking") {
     return <p className="loading">Loading…</p>;
   }
 
-  if (email === null) {
-    return <LoginPage onLoggedIn={setEmail} />;
+  if (status.kind === "needs-setup") {
+    return <SetupPage onComplete={(email) => setStatus({ kind: "signed-in", email })} />;
   }
 
-  return <ClientsPage email={email} onLoggedOut={() => setEmail(null)} />;
+  if (status.kind === "signed-out") {
+    return <LoginPage onLoggedIn={(email) => setStatus({ kind: "signed-in", email })} />;
+  }
+
+  return (
+    <ClientsPage
+      email={status.email}
+      onLoggedOut={() => setStatus({ kind: "signed-out" })}
+    />
+  );
 }

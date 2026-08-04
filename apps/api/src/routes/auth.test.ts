@@ -22,10 +22,17 @@ function fakeEnv(options: { userCount?: number; user?: FakeUser } = {}): Env {
     SESSION_SECRET: SECRET,
     DB: {
       prepare: (sql: string) => {
+        let boundArgs: unknown[] = [];
         const statement = {
-          bind: () => statement,
+          bind: (...args: unknown[]) => {
+            boundArgs = args;
+            return statement;
+          },
           first: async <T,>() => {
             if (sql.includes("COUNT(*)")) return { count: userCount } as T;
+            if (sql.includes("INSERT INTO users")) {
+              return { id: 1, email: boundArgs[0] } as T;
+            }
             if (sql.includes("WHERE email")) return (user as unknown as T) ?? null;
             if (sql.includes("WHERE id")) {
               return (user ? { email: user.email } : null) as T;
@@ -44,20 +51,37 @@ async function fakeUser(password: string): Promise<FakeUser> {
   return { id: 1, email: "anita@example.com", password_hash: await hashPassword(password) };
 }
 
+describe("GET /api/setup/status", () => {
+  it("reports not completed when no account exists", async () => {
+    const res = await app.request("/api/setup/status", {}, fakeEnv({ userCount: 0 }));
+    expect(await res.json()).toEqual({ completed: false });
+  });
+
+  it("reports completed once an account exists", async () => {
+    const res = await app.request("/api/setup/status", {}, fakeEnv({ userCount: 1 }));
+    expect(await res.json()).toEqual({ completed: true });
+  });
+});
+
 describe("POST /api/setup", () => {
-  it("creates the first account when none exists", async () => {
+  it("creates the first account, signs in, and returns it", async () => {
     const res = await app.request(
       "/api/setup",
-      { method: "POST", body: JSON.stringify({ email: "anita@example.com", password: "hunter2" }) },
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "anita@example.com", password: "correct-password" }),
+      },
       fakeEnv({ userCount: 0 }),
     );
     expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ email: "anita@example.com" });
+    expect(res.headers.get("set-cookie")).toContain("session=");
   });
 
   it("refuses to create a second account", async () => {
     const res = await app.request(
       "/api/setup",
-      { method: "POST", body: JSON.stringify({ email: "someone@example.com", password: "x" }) },
+      { method: "POST", body: JSON.stringify({ email: "someone@example.com", password: "correct-password" }) },
       fakeEnv({ userCount: 1 }),
     );
     expect(res.status).toBe(403);
@@ -67,6 +91,15 @@ describe("POST /api/setup", () => {
     const res = await app.request(
       "/api/setup",
       { method: "POST", body: JSON.stringify({ email: "anita@example.com" }) },
+      fakeEnv({ userCount: 0 }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a password shorter than 8 characters", async () => {
+    const res = await app.request(
+      "/api/setup",
+      { method: "POST", body: JSON.stringify({ email: "anita@example.com", password: "short1" }) },
       fakeEnv({ userCount: 0 }),
     );
     expect(res.status).toBe(400);
