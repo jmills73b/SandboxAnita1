@@ -1,4 +1,4 @@
-# Invoice & Performance Tracker
+# ACM Caseflow
 
 A small web app for Anita's costs-consultancy business, replacing the spreadsheet currently used to log invoices, track income against monthly targets, and estimate UK income tax / National Insurance liability.
 

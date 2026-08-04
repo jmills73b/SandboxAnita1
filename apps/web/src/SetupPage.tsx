@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { setup } from "./api";
+import { Brand } from "./Brand";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -36,6 +37,7 @@ export function SetupPage({ onComplete }: { onComplete: (email: string) => void 
 
   return (
     <main className="page page-narrow">
+      <Brand />
       <h1>Create your account</h1>
       <p className="hint">
         One-time setup — this app only ever has a single account.
