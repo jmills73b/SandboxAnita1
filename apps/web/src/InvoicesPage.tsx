@@ -22,6 +22,10 @@ function statusClass(status: string): string {
   return `status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }
 
+function lagLabel(days: number | null): string {
+  return days !== null ? `${days}d` : "—";
+}
+
 type View = { kind: "ledger" } | { kind: "client"; clientId: number };
 
 export function InvoicesPage({ onBack }: { onBack: () => void }) {
@@ -40,6 +44,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [editAmount, setEditAmount] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   async function refresh() {
     setLoading(true);
@@ -159,6 +165,13 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const trimmedSearch = search.trim().toLowerCase();
+  const filteredInvoices = invoices.filter(
+    (invoice) =>
+      (statusFilter === "all" || invoice.status === statusFilter) &&
+      invoice.clientName.toLowerCase().includes(trimmedSearch),
+  );
+
   if (view.kind === "client") {
     return (
       <ClientDetail
@@ -228,10 +241,38 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         </p>
       )}
 
+      {invoices.length > 0 && (
+        <div className="filters">
+          <label className="sr-only" htmlFor="invoice-search">
+            Search by client
+          </label>
+          <input
+            id="invoice-search"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by client…"
+          />
+          <label className="sr-only" htmlFor="status-filter">
+            Filter by status
+          </label>
+          <select id="status-filter" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="all">All statuses</option>
+            {INVOICE_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <p>Loading…</p>
       ) : invoices.length === 0 ? (
         <p className="empty">No invoices yet — add the first one above.</p>
+      ) : filteredInvoices.length === 0 ? (
+        <p className="empty">No invoices match your search.</p>
       ) : (
         <div className="table-scroll">
           <table className="ledger">
@@ -242,11 +283,12 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                 <th>Amount</th>
                 <th>Your share</th>
                 <th>Status</th>
+                <th>Lag</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {invoices.map((invoice) =>
+              {filteredInvoices.map((invoice) =>
                 editingId === invoice.id ? (
                   <tr key={invoice.id}>
                     <td>
@@ -281,7 +323,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                         </p>
                       )}
                     </td>
-                    <td colSpan={2}>
+                    <td colSpan={3}>
                       <div className="row-actions">
                         <button type="button" onClick={() => saveEdit(invoice.id)} disabled={editSubmitting}>
                           {editSubmitting ? "Saving…" : "Save"}
@@ -319,6 +361,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                         ))}
                       </select>
                     </td>
+                    <td>{lagLabel(invoice.lagDays)}</td>
                     <td>
                       <div className="row-actions">
                         <button type="button" onClick={() => startEdit(invoice)}>
@@ -397,6 +440,7 @@ function ClientDetail({
                 <th>Amount</th>
                 <th>Your share</th>
                 <th>Status</th>
+                <th>Lag</th>
               </tr>
             </thead>
             <tbody>
@@ -408,6 +452,7 @@ function ClientDetail({
                   <td>
                     <span className={`status ${statusClass(invoice.status)}`}>{invoice.status}</span>
                   </td>
+                  <td>{lagLabel(invoice.lagDays)}</td>
                 </tr>
               ))}
             </tbody>
