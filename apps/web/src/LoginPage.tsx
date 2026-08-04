@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { login } from "./api";
+import { Brand } from "./Brand";
 
 export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void }) {
   const [email, setEmail] = useState("");
@@ -23,6 +24,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void 
 
   return (
     <main className="page page-narrow">
+      <Brand />
       <h1>Sign in</h1>
       <form onSubmit={handleSubmit} className="form">
         <label>
