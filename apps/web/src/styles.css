@@ -1,0 +1,155 @@
+:root {
+  --ink: #1e2a24;
+  --ink-soft: #55635a;
+  --paper: #f2f4ee;
+  --accent: #2f6e5c;
+  --border: #d8dcce;
+  --error: #a23b2e;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.page {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+
+.page-narrow {
+  max-width: 360px;
+  padding-top: 15vh;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.who {
+  color: var(--ink-soft);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-inline {
+  flex-direction: row;
+  margin-bottom: 20px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+input {
+  font-size: 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  flex: 1;
+}
+
+button {
+  font-size: 15px;
+  padding: 12px 18px;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.error {
+  color: var(--error);
+  font-size: 14px;
+  margin: 0;
+}
+
+.empty {
+  color: var(--ink-soft);
+}
+
+.client-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.client-list li {
+  background: white;
+  padding: 14px 16px;
+}
+
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+@media (max-width: 420px) {
+  .page {
+    padding: 16px 14px 40px;
+  }
+}

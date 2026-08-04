@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import clients from "./routes/clients";
 
@@ -10,6 +11,17 @@ export interface Env {
 export type AppEnv = { Bindings: Env; Variables: { userId: number } };
 
 const app = new Hono<AppEnv>();
+
+// The frontend (Pages) and this API (Workers) are on different domains, so
+// every /api/* request is cross-origin. Named explicitly rather than "*"
+// because credentials (the session cookie) require a specific origin.
+app.use(
+  "/api/*",
+  cors({
+    origin: ["https://anita-invoice-tracker.pages.dev", "http://localhost:5173"],
+    credentials: true,
+  }),
+);
 
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
