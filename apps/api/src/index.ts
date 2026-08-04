@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import auth from "./routes/auth";
+import clients from "./routes/clients";
 
 export interface Env {
   DB: D1Database;
@@ -13,10 +14,6 @@ const app = new Hono<AppEnv>();
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.route("/api", auth);
-
-app.get("/api/clients", async (c) => {
-  const { results } = await c.env.DB.prepare("SELECT id, name FROM clients ORDER BY name").all();
-  return c.json(results);
-});
+app.route("/api/clients", clients);
 
 export default app;
