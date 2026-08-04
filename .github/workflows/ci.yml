@@ -16,26 +16,36 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            npm ci
-          else
-            echo "No package.json yet — Increment 0 will add one. Nothing to install."
-          fi
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
 
-      - name: Lint
-        run: |
-          if [ -f package.json ]; then
-            npm run lint --if-present
-          else
-            echo "No package.json yet — skipping lint."
-          fi
+  deploy:
+    needs: lint-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Test
-        run: |
-          if [ -f package.json ]; then
-            npm test --if-present
-          else
-            echo "No package.json yet — skipping tests."
-          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: d1 migrations apply anita-invoice-tracker --remote
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          command: deploy
