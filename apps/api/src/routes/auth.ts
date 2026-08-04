@@ -88,7 +88,7 @@ auth.get("/me", requireAuth, async (c) => {
 });
 
 auth.post("/logout", (c) => {
-  deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true, sameSite: "None" });
+  deleteCookie(c, SESSION_COOKIE, { path: "/", secure: true, sameSite: "Lax" });
   return c.json({ ok: true });
 });
 
@@ -97,14 +97,16 @@ async function issueSession(c: Context<AppEnv>, userId: number) {
     { userId, exp: Math.floor(Date.now() / 1000) + SESSION_LIFETIME_SECONDS },
     c.env.SESSION_SECRET,
   );
-  // SameSite=None (not Strict) because the frontend (Pages) and this API
-  // (Workers) are on different domains — Strict would silently stop the
-  // browser sending the cookie back at all. Secure=true is required for
-  // None, and everything here is HTTPS-only anyway.
+  // SameSite=Lax, not None: the browser only ever talks to the Pages
+  // domain (see apps/web/functions/api/[[path]].ts, which proxies to this
+  // Worker server-side), so this cookie is first-party from the browser's
+  // point of view. None was needed only when the browser called this
+  // Worker's own domain directly, cross-site -- and Safari's cross-site
+  // tracking prevention made that unreliable in practice.
   setCookie(c, SESSION_COOKIE, token, {
     httpOnly: true,
     secure: true,
-    sameSite: "None",
+    sameSite: "Lax",
     path: "/",
     maxAge: SESSION_LIFETIME_SECONDS,
   });
