@@ -42,6 +42,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [editDate, setEditDate] = useState("");
   const [editClientName, setEditClientName] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [editSettledClient, setEditSettledClient] = useState("");
+  const [editSettledFirm, setEditSettledFirm] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [search, setSearch] = useState("");
@@ -113,6 +115,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     setEditDate(invoice.invoiceDate);
     setEditClientName(invoice.clientName);
     setEditAmount(String(invoice.totalAmount));
+    setEditSettledClient(invoice.dateSettledClient ?? "");
+    setEditSettledFirm(invoice.dateSettledFirm ?? "");
     setEditError(null);
   }
 
@@ -141,7 +145,13 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
       const existing = clients.find((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
       const clientId = existing ? existing.id : (await addClient(trimmedName)).id;
 
-      await updateInvoice(id, { invoiceDate: editDate, clientId, totalAmount: amount });
+      await updateInvoice(id, {
+        invoiceDate: editDate,
+        clientId,
+        totalAmount: amount,
+        dateSettledClient: editSettledClient || null,
+        dateSettledFirm: editSettledFirm || null,
+      });
       setEditingId(null);
       await refresh();
     } catch (err) {
@@ -241,6 +251,75 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         </p>
       )}
 
+      {editingId !== null && (
+        <div className="edit-panel">
+          <p className="edit-panel-title">Editing invoice for {editClientName || "…"}</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Date</span>
+              <input
+                type="date"
+                className="input-compact"
+                value={editDate}
+                onChange={(event) => setEditDate(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Client</span>
+              <input
+                list="client-options"
+                className="input-compact"
+                value={editClientName}
+                onChange={(event) => setEditClientName(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Amount</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                className="input-compact"
+                value={editAmount}
+                onChange={(event) => setEditAmount(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Paid to Newmans</span>
+              <input
+                type="date"
+                className="input-compact"
+                value={editSettledClient}
+                onChange={(event) => setEditSettledClient(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Paid to Anita</span>
+              <input
+                type="date"
+                className="input-compact"
+                value={editSettledFirm}
+                onChange={(event) => setEditSettledFirm(event.target.value)}
+              />
+            </label>
+          </div>
+          {editError && (
+            <p className="error" role="alert">
+              {editError}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+              {editSubmitting ? "Saving…" : "Save"}
+            </button>
+            <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {invoices.length > 0 && (
         <div className="filters">
           <label className="sr-only" htmlFor="invoice-search">
@@ -288,93 +367,46 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.map((invoice) =>
-                editingId === invoice.id ? (
-                  <tr key={invoice.id}>
-                    <td>
-                      <input
-                        type="date"
-                        className="input-compact"
-                        value={editDate}
-                        onChange={(event) => setEditDate(event.target.value)}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        list="client-options"
-                        className="input-compact"
-                        value={editClientName}
-                        onChange={(event) => setEditClientName(event.target.value)}
-                      />
-                    </td>
-                    <td colSpan={2}>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        step="0.01"
-                        min="0.01"
-                        className="input-compact"
-                        value={editAmount}
-                        onChange={(event) => setEditAmount(event.target.value)}
-                      />
-                      {editError && (
-                        <p className="error" role="alert">
-                          {editError}
-                        </p>
-                      )}
-                    </td>
-                    <td colSpan={3}>
-                      <div className="row-actions">
-                        <button type="button" onClick={() => saveEdit(invoice.id)} disabled={editSubmitting}>
-                          {editSubmitting ? "Saving…" : "Save"}
-                        </button>
-                        <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-                          Cancel
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={invoice.id}>
-                    <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="client-link"
-                        onClick={() => setView({ kind: "client", clientId: invoice.clientId })}
-                      >
-                        {invoice.clientName}
+              {filteredInvoices.map((invoice) => (
+                <tr key={invoice.id} className={editingId === invoice.id ? "row-editing" : undefined}>
+                  <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="client-link"
+                      onClick={() => setView({ kind: "client", clientId: invoice.clientId })}
+                    >
+                      {invoice.clientName}
+                    </button>
+                  </td>
+                  <td>{money.format(invoice.totalAmount)}</td>
+                  <td>{money.format(invoice.anitaIncome)}</td>
+                  <td>
+                    <select
+                      className={`status status-select ${statusClass(invoice.status)}`}
+                      value={invoice.status}
+                      onChange={(event) => handleStatusChange(invoice, event.target.value)}
+                    >
+                      {INVOICE_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>{lagLabel(invoice.lagDays)}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button type="button" onClick={() => startEdit(invoice)}>
+                        Edit
                       </button>
-                    </td>
-                    <td>{money.format(invoice.totalAmount)}</td>
-                    <td>{money.format(invoice.anitaIncome)}</td>
-                    <td>
-                      <select
-                        className={`status status-select ${statusClass(invoice.status)}`}
-                        value={invoice.status}
-                        onChange={(event) => handleStatusChange(invoice, event.target.value)}
-                      >
-                        {INVOICE_STATUSES.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td>{lagLabel(invoice.lagDays)}</td>
-                    <td>
-                      <div className="row-actions">
-                        <button type="button" onClick={() => startEdit(invoice)}>
-                          Edit
-                        </button>
-                        <button type="button" className="danger" onClick={() => handleDelete(invoice)}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ),
-              )}
+                      <button type="button" className="danger" onClick={() => handleDelete(invoice)}>
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

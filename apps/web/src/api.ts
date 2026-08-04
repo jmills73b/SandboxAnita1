@@ -85,6 +85,8 @@ export function updateInvoice(
     clientId: number;
     totalAmount: number;
     status: string;
+    dateSettledClient: string | null;
+    dateSettledFirm: string | null;
   }>,
 ): Promise<Invoice> {
   return request(`/api/invoices/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
