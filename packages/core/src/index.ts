@@ -1,2 +1,1 @@
-export { calculateAnitaIncome, splitPercentage } from "./income";
-export type { ClientStatus } from "./income";
+export { calculateAnitaIncome, DEFAULT_SPLIT_PERCENTAGE } from "./income";
