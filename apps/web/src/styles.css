@@ -187,6 +187,27 @@ button.brand {
   min-width: 130px;
 }
 
+.filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filters input {
+  flex: 1;
+  min-width: 160px;
+}
+
+.filters select {
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
 /* The ledger now has enough columns (status, actions) that it usually
    needs to scroll sideways on a phone. Without a hint for that, the
    status dropdown and Edit/Delete buttons just look missing — this is
