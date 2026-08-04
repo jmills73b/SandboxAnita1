@@ -507,6 +507,123 @@ button.secondary {
   margin-top: 2px;
 }
 
+/* Performance stats: actual vs. target with a percentage bar, rather than
+   bare numbers side by side — the bar is what makes "how close am I"
+   readable at a glance. */
+.stat-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.stat-group-label {
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.stat-group-figures {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-actual {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.stat-of {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--ink);
+  border-radius: 3px;
+}
+
+.stat-group-pct {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A hand-rolled bar chart — no charting library needed for twelve bars.
+   Bar and target-line heights are set inline as percentages of a fixed
+   pixel container, so they need no JS on resize. */
+.income-chart-wrap {
+  margin-bottom: 28px;
+}
+
+.income-chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  padding-top: 10px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.income-chart-target-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed var(--ink-faint);
+}
+
+.income-chart-bar {
+  flex: 1;
+  min-width: 14px;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.income-chart-bar-fill {
+  width: 100%;
+  min-height: 2px;
+  background: var(--line-strong);
+  border-radius: 2px 2px 0 0;
+}
+
+.income-chart-bar-fill.met {
+  background: var(--ink);
+}
+
+.income-chart-labels {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.income-chart-label {
+  flex: 1;
+  min-width: 14px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--ink-faint);
+}
+
+.chart-caption {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin: 10px 0 0;
+}
+
 /* Dashboard hub */
 .hero-grid {
   display: grid;

@@ -97,18 +97,19 @@ export function deleteInvoice(id: number): Promise<{ ok: boolean }> {
 }
 
 export interface TaxYearSettings {
+  startYear: number;
   taxYear: string;
   startDate: string;
   monthlyTarget: number | null;
   splitPercentage: number | null;
 }
 
-export function getCurrentTaxYearSettings(): Promise<TaxYearSettings> {
-  return request("/api/tax-year-settings/current");
+export function getTaxYearSettings(startYear: number): Promise<TaxYearSettings> {
+  return request(`/api/tax-year-settings/${startYear}`);
 }
 
-export function setMonthlyTarget(monthlyTarget: number): Promise<TaxYearSettings> {
-  return request("/api/tax-year-settings/current", {
+export function setTaxYearTarget(startYear: number, monthlyTarget: number): Promise<TaxYearSettings> {
+  return request(`/api/tax-year-settings/${startYear}`, {
     method: "POST",
     body: JSON.stringify({ monthlyTarget }),
   });
