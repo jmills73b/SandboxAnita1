@@ -50,7 +50,7 @@ export async function verifySessionToken(
   return payload;
 }
 
-async function deriveBits(password: string, salt: Uint8Array): Promise<ArrayBuffer> {
+async function deriveBits(password: string, salt: Uint8Array<ArrayBuffer>): Promise<ArrayBuffer> {
   const keyMaterial = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(password),
@@ -80,7 +80,7 @@ async function sign(data: string, secret: string): Promise<string> {
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  for (let i = 0; i < a.length; i++) diff |= (a[i] ?? 0) ^ (b[i] ?? 0);
   return diff === 0;
 }
 
@@ -88,6 +88,6 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-function fromBase64(b64: string): Uint8Array {
+function fromBase64(b64: string): Uint8Array<ArrayBuffer> {
   return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 }
