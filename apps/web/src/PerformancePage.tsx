@@ -1,27 +1,29 @@
 import { useEffect, useState, type FormEvent } from "react";
-import {
-  getCurrentTaxYearSettings,
-  getInvoices,
-  setMonthlyTarget,
-  type Invoice,
-  type TaxYearSettings,
-} from "./api";
+import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel } from "@sandboxanita1/core";
+import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
+const monthAbbrevFmt = new Intl.DateTimeFormat("en-GB", { month: "short" });
 
-const TREND_MONTHS = 6;
+const YEAR_OPTIONS = 6;
 
 function monthKey(dateStr: string): string {
   return dateStr.slice(0, 7);
 }
 
-// key is always our own "YYYY-MM" (see recentMonthKeys/monthKey), so fixed
-// slicing is simpler and safer here than destructuring a split() array.
+// key is always our own "YYYY-MM" (see taxYearMonthKeys/toMonthKey), so
+// fixed slicing is simpler and safer here than destructuring a split() array.
 function monthLabel(key: string): string {
   const year = Number(key.slice(0, 4));
   const month = Number(key.slice(5, 7));
   return monthFmt.format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function monthAbbrev(key: string): string {
+  const year = Number(key.slice(0, 4));
+  const month = Number(key.slice(5, 7));
+  return monthAbbrevFmt.format(new Date(Date.UTC(year, month - 1, 1)));
 }
 
 function toMonthKey(date: Date): string {
@@ -32,16 +34,18 @@ function currentMonthKey(): string {
   return toMonthKey(new Date());
 }
 
-// The last N months including the current one, oldest first — always
-// generated fresh rather than derived from the invoices, so a month with
-// no settled income yet still shows up as "£0 so far" instead of vanishing.
-function recentMonthKeys(count: number): string[] {
-  const now = new Date();
+// April of startYear through March of startYear + 1. For the current tax
+// year this is truncated to "up to this month" — a future month hasn't
+// happened yet, so there's nothing meaningful to show for it. A past tax
+// year is already complete, so all 12 months are shown.
+function taxYearMonthKeys(startYear: number, truncateToCurrentMonth: boolean): string[] {
   const keys: string[] = [];
-  for (let i = count - 1; i >= 0; i--) {
-    keys.push(toMonthKey(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1))));
+  for (let i = 0; i < 12; i++) {
+    keys.push(toMonthKey(new Date(Date.UTC(startYear, 3 + i, 1))));
   }
-  return keys;
+  if (!truncateToCurrentMonth) return keys;
+  const idx = keys.indexOf(currentMonthKey());
+  return idx >= 0 ? keys.slice(0, idx + 1) : keys;
 }
 
 // Money actually landing with Anita (dateSettledFirm), not the invoice
@@ -62,15 +66,23 @@ function targetStatusClass(actual: number, target: number): string {
   return "status-in-progress";
 }
 
-function targetStatusLabel(actual: number, target: number): string {
+// "yet" only makes sense while the period could still receive income —
+// a past month, or a past tax year's "full year" headline, is already
+// closed, so "No income" reads as the final word rather than a pending one.
+function targetStatusLabel(actual: number, target: number, pending: boolean): string {
   if (actual >= target) return "Target met";
   if (actual > 0) return "Below target";
-  return "No income yet";
+  return pending ? "No income yet" : "No income";
+}
+
+function percentOfTarget(actual: number, target: number): number {
+  return target > 0 ? (actual / target) * 100 : 0;
 }
 
 export function PerformancePage({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [settings, setSettings] = useState<TaxYearSettings | null>(null);
+  const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
@@ -78,10 +90,11 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
   const [targetError, setTargetError] = useState<string | null>(null);
   const [targetSubmitting, setTargetSubmitting] = useState(false);
 
-  async function refresh() {
+  async function refresh(startYear: number) {
     setLoading(true);
+    setEditingTarget(false);
     try {
-      const [invoiceList, taxYearSettings] = await Promise.all([getInvoices(), getCurrentTaxYearSettings()]);
+      const [invoiceList, taxYearSettings] = await Promise.all([getInvoices(), getTaxYearSettings(startYear)]);
       setInvoices(invoiceList);
       setSettings(taxYearSettings);
     } catch (err) {
@@ -92,8 +105,8 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
   }
 
   useEffect(() => {
-    refresh();
-  }, []);
+    refresh(selectedStartYear);
+  }, [selectedStartYear]);
 
   async function handleSetTarget(event: FormEvent) {
     event.preventDefault();
@@ -107,7 +120,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
 
     setTargetSubmitting(true);
     try {
-      const updated = await setMonthlyTarget(amount);
+      const updated = await setTaxYearTarget(selectedStartYear, amount);
       setSettings(updated);
       setEditingTarget(false);
       setTargetInput("");
@@ -124,6 +137,23 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
         ← Dashboard
       </button>
       <h1 className="sr-only">Performance &amp; Targets</h1>
+
+      <div className="filters">
+        <label className="sr-only" htmlFor="tax-year-select">
+          Tax year
+        </label>
+        <select
+          id="tax-year-select"
+          value={selectedStartYear}
+          onChange={(event) => setSelectedStartYear(Number(event.target.value))}
+        >
+          {recentTaxYearStartYears(YEAR_OPTIONS).map((year) => (
+            <option key={year} value={year}>
+              {taxYearLabel(year)}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {error && (
         <p className="error" role="alert">
@@ -146,7 +176,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
             min="0.01"
             value={targetInput}
             onChange={(event) => setTargetInput(event.target.value)}
-            placeholder="Monthly target (£)"
+            placeholder={`Monthly target for ${taxYearLabel(selectedStartYear)} (£)`}
             required
             autoFocus
           />
@@ -163,6 +193,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
         <PerformanceSummary
           invoices={invoices}
           target={settings.monthlyTarget}
+          startYear={selectedStartYear}
           taxYear={settings.taxYear}
           onEditTarget={() => {
             setTargetInput(String(settings.monthlyTarget));
@@ -183,26 +214,36 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
 function PerformanceSummary({
   invoices,
   target,
+  startYear,
   taxYear,
   onEditTarget,
 }: {
   invoices: Invoice[];
   target: number;
+  startYear: number;
   taxYear: string;
   onEditTarget: () => void;
 }) {
+  const isCurrentYear = startYear === currentTaxYearStartYear();
   const monthlyTotals = incomeByMonth(invoices);
-  const months = recentMonthKeys(TREND_MONTHS);
+  const monthKeys = taxYearMonthKeys(startYear, isCurrentYear);
+
+  const yearActual = monthKeys.reduce((sum, key) => sum + (monthlyTotals.get(key) ?? 0), 0);
+  const yearTarget = target * monthKeys.length;
+
   const thisMonthKey = currentMonthKey();
   const thisMonthActual = monthlyTotals.get(thisMonthKey) ?? 0;
+
+  const headlineActual = isCurrentYear ? thisMonthActual : yearActual;
+  const headlineTarget = isCurrentYear ? target : yearTarget;
 
   return (
     <>
       <div className="client-header">
         <div className="performance-heading">
-          <h2>{monthLabel(thisMonthKey)}</h2>
-          <span className={`status ${targetStatusClass(thisMonthActual, target)}`}>
-            {targetStatusLabel(thisMonthActual, target)}
+          <h2>{taxYear}</h2>
+          <span className={`status ${targetStatusClass(headlineActual, headlineTarget)}`}>
+            {targetStatusLabel(headlineActual, headlineTarget, isCurrentYear)}
           </span>
         </div>
         <button type="button" className="secondary" onClick={onEditTarget}>
@@ -210,16 +251,22 @@ function PerformanceSummary({
         </button>
       </div>
 
-      <div className="client-stats">
-        <div className="client-stat">
-          <div className="n">{money.format(thisMonthActual)}</div>
-          <div className="l">Received this month</div>
-        </div>
-        <div className="client-stat">
-          <div className="n">{money.format(target)}</div>
-          <div className="l">Monthly target ({taxYear})</div>
-        </div>
+      <div className="stat-groups">
+        {isCurrentYear && (
+          <StatWithBar
+            label={`This month (${monthLabel(thisMonthKey)})`}
+            actual={thisMonthActual}
+            target={target}
+          />
+        )}
+        <StatWithBar
+          label={isCurrentYear ? "Year to date" : "Full year"}
+          actual={yearActual}
+          target={yearTarget}
+        />
       </div>
+
+      <IncomeChart monthKeys={monthKeys} monthlyTotals={monthlyTotals} target={target} />
 
       <div className="table-scroll">
         <table className="ledger">
@@ -232,11 +279,12 @@ function PerformanceSummary({
             </tr>
           </thead>
           <tbody>
-            {months
+            {monthKeys
               .slice()
               .reverse()
               .map((key) => {
                 const actual = monthlyTotals.get(key) ?? 0;
+                const pending = isCurrentYear && key === thisMonthKey;
                 return (
                   <tr key={key}>
                     <td>{monthLabel(key)}</td>
@@ -244,7 +292,7 @@ function PerformanceSummary({
                     <td>{money.format(target)}</td>
                     <td>
                       <span className={`status ${targetStatusClass(actual, target)}`}>
-                        {targetStatusLabel(actual, target)}
+                        {targetStatusLabel(actual, target, pending)}
                       </span>
                     </td>
                   </tr>
@@ -254,5 +302,65 @@ function PerformanceSummary({
         </table>
       </div>
     </>
+  );
+}
+
+function StatWithBar({ label, actual, target }: { label: string; actual: number; target: number }) {
+  const pct = percentOfTarget(actual, target);
+
+  return (
+    <div className="stat-group">
+      <div className="stat-group-label">{label}</div>
+      <div className="stat-group-figures">
+        <span className="stat-actual">{money.format(actual)}</span>
+        <span className="stat-of"> of {money.format(target)}</span>
+      </div>
+      <div className="progress-bar">
+        <div className="progress-bar-fill" style={{ width: `${Math.min(pct, 100)}%` }} />
+      </div>
+      <div className="stat-group-pct">{Math.round(pct)}% of target</div>
+    </div>
+  );
+}
+
+function IncomeChart({
+  monthKeys,
+  monthlyTotals,
+  target,
+}: {
+  monthKeys: string[];
+  monthlyTotals: Map<string, number>;
+  target: number;
+}) {
+  const maxValue = Math.max(target, ...monthKeys.map((key) => monthlyTotals.get(key) ?? 0), 1);
+  const targetLinePct = Math.min((target / maxValue) * 100, 100);
+
+  return (
+    <div className="income-chart-wrap">
+      <div className="income-chart">
+        <div className="income-chart-target-line" style={{ bottom: `${targetLinePct}%` }} />
+        {monthKeys.map((key) => {
+          const actual = monthlyTotals.get(key) ?? 0;
+          const heightPct = (actual / maxValue) * 100;
+          return (
+            <div className="income-chart-bar" key={key}>
+              <div
+                className={`income-chart-bar-fill ${actual >= target ? "met" : ""}`}
+                style={{ height: `${heightPct}%` }}
+                title={`${monthLabel(key)}: ${money.format(actual)}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="income-chart-labels">
+        {monthKeys.map((key) => (
+          <div className="income-chart-label" key={key}>
+            {monthAbbrev(key)}
+          </div>
+        ))}
+      </div>
+      <p className="chart-caption">Solid bar = target met that month · dashed line = monthly target</p>
+    </div>
   );
 }

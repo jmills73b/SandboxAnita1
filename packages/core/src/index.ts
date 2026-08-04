@@ -8,4 +8,10 @@ export {
 export type { SessionPayload } from "./auth";
 export { INVOICE_STATUSES, isValidInvoiceStatus } from "./invoiceStatus";
 export type { InvoiceStatus } from "./invoiceStatus";
-export { currentTaxYear } from "./taxYear";
+export {
+  currentTaxYear,
+  currentTaxYearStartYear,
+  recentTaxYearStartYears,
+  taxYearLabel,
+  taxYearStartDate,
+} from "./taxYear";

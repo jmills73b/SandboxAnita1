@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSessionToken, currentTaxYear, DEFAULT_SPLIT_PERCENTAGE } from "@sandboxanita1/core";
+import { createSessionToken, DEFAULT_SPLIT_PERCENTAGE } from "@sandboxanita1/core";
 import app from "../index";
 import type { Env } from "../index";
 
@@ -63,69 +63,88 @@ function fakeEnv(options: { existingRow?: FakeRow | null } = {}): Env {
   };
 }
 
-describe("GET /api/tax-year-settings/current", () => {
+describe("GET /api/tax-year-settings/:startYear", () => {
   it("rejects a request with no session", async () => {
-    const res = await app.request("/api/tax-year-settings/current", {}, fakeEnv());
+    const res = await app.request("/api/tax-year-settings/2026", {}, fakeEnv());
     expect(res.status).toBe(401);
   });
 
-  it("returns a null target when no tax year row exists yet", async () => {
+  it("rejects a malformed start year", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/not-a-year",
+      { headers: { Cookie: cookie } },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns a null target when no row exists yet for that year", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/2026",
       { headers: { Cookie: cookie } },
       fakeEnv({ existingRow: null }),
     );
     expect(res.status).toBe(200);
-    const body = await res.json();
-    const { label, startDate } = currentTaxYear();
-    expect(body).toEqual({ taxYear: label, startDate, monthlyTarget: null, splitPercentage: null });
+    expect(await res.json()).toEqual({
+      startYear: 2026,
+      taxYear: "2026/27",
+      startDate: "2026-04-06",
+      monthlyTarget: null,
+      splitPercentage: null,
+    });
   });
 
-  it("returns the stored target when a row exists", async () => {
+  it("returns the stored target for a past tax year", async () => {
     const cookie = await sessionCookie();
-    const { label, startDate } = currentTaxYear();
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/2024",
       { headers: { Cookie: cookie } },
       fakeEnv({
-        existingRow: {
-          tax_year: label,
-          start_date: startDate,
-          monthly_target: 3000,
-          split_percentage: 0.75,
-        },
+        existingRow: { tax_year: "2024/25", start_date: "2024-04-06", monthly_target: 2800, split_percentage: 0.75 },
       }),
     );
     const body = await res.json();
-    expect(body.monthlyTarget).toBe(3000);
+    expect(body.taxYear).toBe("2024/25");
+    expect(body.monthlyTarget).toBe(2800);
   });
 });
 
-describe("POST /api/tax-year-settings/current", () => {
+describe("POST /api/tax-year-settings/:startYear", () => {
   it("rejects a request with no session", async () => {
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/2026",
       { method: "POST", body: JSON.stringify({ monthlyTarget: 3000 }) },
       fakeEnv(),
     );
     expect(res.status).toBe(401);
   });
 
+  it("rejects a malformed start year", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/not-a-year",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ monthlyTarget: 3000 }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("rejects a £0 target", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/2026",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ monthlyTarget: 0 }) },
       fakeEnv(),
     );
     expect(res.status).toBe(400);
   });
 
-  it("creates a target for the current tax year using the default split", async () => {
+  it("creates a target for an arbitrary tax year using the default split", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/2025",
       {
         method: "POST",
         headers: { Cookie: cookie },
@@ -135,27 +154,23 @@ describe("POST /api/tax-year-settings/current", () => {
     );
     expect(res.status).toBe(200);
     const body = await res.json();
+    expect(body.taxYear).toBe("2025/26");
+    expect(body.startDate).toBe("2025-04-06");
     expect(body.monthlyTarget).toBe(3000);
     expect(body.splitPercentage).toBe(DEFAULT_SPLIT_PERCENTAGE);
   });
 
   it("updates the target without disturbing the stored split", async () => {
     const cookie = await sessionCookie();
-    const { label, startDate } = currentTaxYear();
     const res = await app.request(
-      "/api/tax-year-settings/current",
+      "/api/tax-year-settings/2026",
       {
         method: "POST",
         headers: { Cookie: cookie },
         body: JSON.stringify({ monthlyTarget: 3500 }),
       },
       fakeEnv({
-        existingRow: {
-          tax_year: label,
-          start_date: startDate,
-          monthly_target: 3000,
-          split_percentage: 0.75,
-        },
+        existingRow: { tax_year: "2026/27", start_date: "2026-04-06", monthly_target: 3000, split_percentage: 0.75 },
       }),
     );
     const body = await res.json();
