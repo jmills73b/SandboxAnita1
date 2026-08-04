@@ -4,6 +4,7 @@ import type { Env } from "./index";
 
 function fakeEnv(rows: unknown[]): Env {
   return {
+    SESSION_SECRET: "test-secret",
     DB: {
       prepare: () => ({
         all: async () => ({ results: rows, success: true, meta: {} }),
