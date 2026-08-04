@@ -61,11 +61,12 @@ jobs:
           workingDirectory: apps/api
           command: deploy
 
+      # No VITE_API_URL: the frontend calls relative /api/... paths, which
+      # apps/web/functions/api/[[path]].ts proxies to the Worker server-side
+      # -- keeping the browser's requests same-origin. See that file for why.
       - name: Build web frontend
         working-directory: apps/web
         run: npm run build
-        env:
-          VITE_API_URL: https://anita-invoice-tracker-api.jmills1983-1aa.workers.dev
 
       - name: Ensure Pages project exists
         working-directory: apps/web
