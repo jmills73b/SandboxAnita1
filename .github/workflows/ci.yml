@@ -42,6 +42,17 @@ jobs:
           workingDirectory: apps/api
           command: d1 migrations apply anita-invoice-tracker --remote
 
+      - name: Set session secret
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          secrets: |
+            SESSION_SECRET
+        env:
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:

@@ -10,6 +10,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply anita-invoice-tracker --remote"
   },
   "dependencies": {
+    "@sandboxanita1/core": "*",
     "hono": "^4.6.9"
   },
   "devDependencies": {
