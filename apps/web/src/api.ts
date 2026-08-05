@@ -313,3 +313,99 @@ export function getAccountSettings(): Promise<AccountSettings> {
 export function updateAccountSettings(inviteCode: string): Promise<AccountSettings> {
   return request("/api/account-settings", { method: "PUT", body: JSON.stringify({ inviteCode }) });
 }
+
+export interface TimeSettings {
+  unitMinutes: number;
+}
+
+export function getTimeSettings(): Promise<TimeSettings> {
+  return request("/api/time-settings");
+}
+
+export function updateTimeSettings(unitMinutes: number): Promise<TimeSettings> {
+  return request("/api/time-settings", { method: "PUT", body: JSON.stringify({ unitMinutes }) });
+}
+
+export interface TimeCategory {
+  id: number;
+  name: string;
+}
+
+export function getTimeCategories(): Promise<TimeCategory[]> {
+  return request("/api/time-categories");
+}
+
+export function addTimeCategory(name: string): Promise<TimeCategory> {
+  return request("/api/time-categories", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function renameTimeCategory(id: number, name: string): Promise<TimeCategory> {
+  return request(`/api/time-categories/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+export function deleteTimeCategory(id: number, reassignToId: number | null): Promise<{ ok: boolean }> {
+  return request(`/api/time-categories/${id}`, { method: "DELETE", body: JSON.stringify({ reassignToId }) });
+}
+
+export interface HourlyRate {
+  id: number;
+  rate: number;
+  startDate: string;
+  endDate: string | null;
+}
+
+export function getHourlyRates(): Promise<HourlyRate[]> {
+  return request("/api/hourly-rates");
+}
+
+export function addHourlyRate(rate: number, startDate: string): Promise<HourlyRate> {
+  return request("/api/hourly-rates", { method: "POST", body: JSON.stringify({ rate, startDate }) });
+}
+
+export interface TimeEntry {
+  id: number;
+  clientId: number;
+  clientName: string;
+  matter: string | null;
+  date: string;
+  units: number;
+  minutes: number;
+  description: string;
+  categoryId: number | null;
+  category: string | null;
+  rateAtEntry: number | null;
+  feeValue: number | null;
+}
+
+export function getTimeEntries(): Promise<TimeEntry[]> {
+  return request("/api/time-entries");
+}
+
+export function addTimeEntry(input: {
+  date: string;
+  clientId: number;
+  matter?: string;
+  units: number;
+  description: string;
+  categoryId?: number | null;
+}): Promise<TimeEntry> {
+  return request("/api/time-entries", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateTimeEntry(
+  id: number,
+  patch: Partial<{
+    date: string;
+    clientId: number;
+    matter: string | null;
+    units: number;
+    description: string;
+    categoryId: number | null;
+  }>,
+): Promise<TimeEntry> {
+  return request(`/api/time-entries/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteTimeEntry(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/time-entries/${id}`, { method: "DELETE" });
+}
