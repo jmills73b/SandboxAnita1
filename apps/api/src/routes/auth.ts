@@ -28,9 +28,10 @@ auth.post("/setup", async (c) => {
     return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
   }
 
-  // This only ever creates the first account. Once one exists, it's a
-  // permanent 403 — there's no route to add a second user (story 8.1: single
-  // account only).
+  // Only ever creates the first account — the bootstrap problem means it
+  // can't require an invite code (nobody exists yet to have set one).
+  // Every account after this one goes through /register instead, which
+  // does require one.
   const existing = await c.env.DB.prepare("SELECT COUNT(*) as count FROM users").first<{
     count: number;
   }>();
@@ -51,6 +52,51 @@ auth.post("/setup", async (c) => {
 
   // Signed straight in — no separate login step after creating the one
   // account this app will ever have.
+  await issueSession(c, created.id);
+  return c.json({ email: created.email }, 201);
+});
+
+// Open to anyone, unlike every other route here — there's no session yet
+// to require. The invite code is what stands in for auth at this point:
+// it's set by an existing signed-in user (see accountSettings.ts) and
+// checked against the stored value below, so this can't be used to create
+// an account without it, even though the endpoint itself is public.
+auth.post("/register", async (c) => {
+  const { email, password, inviteCode } = await c.req.json<{
+    email?: string;
+    password?: string;
+    inviteCode?: string;
+  }>();
+  if (!email || !password || !inviteCode) {
+    return c.json({ error: "Email, password and invite code are required" }, 400);
+  }
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
+  }
+
+  const settings = await c.env.DB.prepare("SELECT invite_code FROM account_settings WHERE id = 1").first<{
+    invite_code: string;
+  }>();
+  if (!settings?.invite_code || inviteCode !== settings.invite_code) {
+    return c.json({ error: "Invalid invite code" }, 403);
+  }
+
+  const existing = await c.env.DB.prepare("SELECT id FROM users WHERE email = ?").bind(email).first();
+  if (existing) {
+    return c.json({ error: "That email is already registered — try signing in instead" }, 400);
+  }
+
+  const passwordHash = await hashPassword(password);
+  const created = await c.env.DB.prepare(
+    "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email",
+  )
+    .bind(email, passwordHash)
+    .first<{ id: number; email: string }>();
+
+  if (!created) {
+    return c.json({ error: "Could not create the account" }, 500);
+  }
+
   await issueSession(c, created.id);
   return c.json({ email: created.email }, 201);
 });

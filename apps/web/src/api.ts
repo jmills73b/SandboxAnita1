@@ -36,6 +36,10 @@ export function login(email: string, password: string): Promise<{ email: string 
   return request("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
+export function register(email: string, password: string, inviteCode: string): Promise<{ email: string }> {
+  return request("/api/register", { method: "POST", body: JSON.stringify({ email, password, inviteCode }) });
+}
+
 export function logout(): Promise<{ ok: boolean }> {
   return request("/api/logout", { method: "POST" });
 }
@@ -273,4 +277,16 @@ export function updateExpense(
 
 export function deleteExpense(id: number): Promise<{ ok: boolean }> {
   return request(`/api/expenses/${id}`, { method: "DELETE" });
+}
+
+export interface AccountSettings {
+  inviteCode: string;
+}
+
+export function getAccountSettings(): Promise<AccountSettings> {
+  return request("/api/account-settings");
+}
+
+export function updateAccountSettings(inviteCode: string): Promise<AccountSettings> {
+  return request("/api/account-settings", { method: "PUT", body: JSON.stringify({ inviteCode }) });
 }

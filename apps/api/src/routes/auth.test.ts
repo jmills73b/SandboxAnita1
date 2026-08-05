@@ -14,9 +14,13 @@ interface FakeUser {
 // A hand-written stand-in for D1, just capable enough for the handful of
 // queries auth.ts actually runs — not a general SQL engine. Route logic is
 // what's under test here; the crypto itself is covered in packages/core.
-function fakeEnv(options: { userCount?: number; user?: FakeUser } = {}): Env {
+function fakeEnv(
+  options: { userCount?: number; user?: FakeUser; inviteCode?: string; existingEmail?: boolean } = {},
+): Env {
   const userCount = options.userCount ?? 0;
   const user = options.user ?? null;
+  const inviteCode = options.inviteCode ?? "";
+  const existingEmail = options.existingEmail ?? false;
 
   return {
     SESSION_SECRET: SECRET,
@@ -30,8 +34,15 @@ function fakeEnv(options: { userCount?: number; user?: FakeUser } = {}): Env {
           },
           first: async <T,>() => {
             if (sql.includes("COUNT(*)")) return { count: userCount } as T;
+            if (sql.includes("invite_code")) return { invite_code: inviteCode } as T;
             if (sql.includes("INSERT INTO users")) {
               return { id: 1, email: boundArgs[0] } as T;
+            }
+            // Register's duplicate-email check (id only) is a different
+            // query from login's full lookup — has to be told apart, or a
+            // registration test would accidentally exercise login's path.
+            if (sql.includes("SELECT id FROM users WHERE email")) {
+              return (existingEmail ? { id: 99 } : null) as T;
             }
             if (sql.includes("WHERE email")) return (user as unknown as T) ?? null;
             if (sql.includes("WHERE id")) {
@@ -103,6 +114,79 @@ describe("POST /api/setup", () => {
       fakeEnv({ userCount: 0 }),
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/register", () => {
+  it("rejects a missing invite code", async () => {
+    const res = await app.request(
+      "/api/register",
+      { method: "POST", body: JSON.stringify({ email: "new@example.com", password: "correct-password" }) },
+      fakeEnv({ inviteCode: "LETMEIN" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a password shorter than 8 characters", async () => {
+    const res = await app.request(
+      "/api/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "new@example.com", password: "short1", inviteCode: "LETMEIN" }),
+      },
+      fakeEnv({ inviteCode: "LETMEIN" }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects the wrong invite code", async () => {
+    const res = await app.request(
+      "/api/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "new@example.com", password: "correct-password", inviteCode: "WRONG" }),
+      },
+      fakeEnv({ inviteCode: "LETMEIN" }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects registration when no invite code has ever been set", async () => {
+    const res = await app.request(
+      "/api/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "new@example.com", password: "correct-password", inviteCode: "anything" }),
+      },
+      fakeEnv({ inviteCode: "" }),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("rejects an email that's already registered", async () => {
+    const res = await app.request(
+      "/api/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "taken@example.com", password: "correct-password", inviteCode: "LETMEIN" }),
+      },
+      fakeEnv({ inviteCode: "LETMEIN", existingEmail: true }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("creates the account and signs in with a valid invite code", async () => {
+    const res = await app.request(
+      "/api/register",
+      {
+        method: "POST",
+        body: JSON.stringify({ email: "new@example.com", password: "correct-password", inviteCode: "LETMEIN" }),
+      },
+      fakeEnv({ inviteCode: "LETMEIN" }),
+    );
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ email: "new@example.com" });
+    expect(res.headers.get("set-cookie")).toContain("session=");
   });
 });
 

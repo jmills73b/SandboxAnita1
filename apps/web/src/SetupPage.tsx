@@ -40,7 +40,7 @@ export function SetupPage({ onComplete }: { onComplete: (email: string) => void 
       <Brand />
       <h1>Create your account</h1>
       <p className="hint">
-        One-time setup — this app only ever has a single account.
+        One-time setup for the first account. You can invite others to join afterward from the account menu.
       </p>
       <form onSubmit={handleSubmit} className="form">
         <label>

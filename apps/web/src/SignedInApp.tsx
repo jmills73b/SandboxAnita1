@@ -2,6 +2,7 @@ import { useState } from "react";
 import { logout } from "./api";
 import { Dashboard, type DashboardTile } from "./Dashboard";
 import { ExpensesPage } from "./ExpensesPage";
+import { InviteCodePanel } from "./InviteCodePanel";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
@@ -17,6 +18,7 @@ export function SignedInApp({
   onLoggedOut: () => void;
 }) {
   const [screen, setScreen] = useState<Screen>({ kind: "hub" });
+  const [showInviteCode, setShowInviteCode] = useState(false);
   const goHome = () => setScreen({ kind: "hub" });
 
   return (
@@ -25,11 +27,15 @@ export function SignedInApp({
         <Brand onClick={screen.kind === "hub" ? undefined : goHome} />
         <div className="page-header-right">
           <span className="who">{email}</span>
+          <button type="button" className="secondary" onClick={() => setShowInviteCode((prev) => !prev)}>
+            Invite code
+          </button>
           <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
             Sign out
           </button>
         </div>
       </header>
+      {showInviteCode && <InviteCodePanel onClose={() => setShowInviteCode(false)} />}
       {screen.kind === "hub" && <Dashboard onSelect={(tile) => setScreen({ kind: tile })} />}
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
