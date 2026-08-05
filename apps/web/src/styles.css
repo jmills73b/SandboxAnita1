@@ -208,6 +208,37 @@ button.brand {
   color: var(--ink);
 }
 
+.mode-toggle {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mode-toggle button {
+  font-size: 13px;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 0;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+}
+
+.mode-toggle button:not(:last-child) {
+  border-right: 1px solid var(--line-strong);
+}
+
+.mode-toggle button.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.mode-caption {
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin: -8px 0 18px;
+}
+
 /* The ledger now has enough columns (status, actions) that it usually
    needs to scroll sideways on a phone. Without a hint for that, the
    status dropdown and Edit/Delete buttons just look missing — this is
