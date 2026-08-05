@@ -511,6 +511,42 @@ button.client-link:hover {
   background: var(--paper);
 }
 
+.category-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.category-row:last-of-type {
+  border-bottom: none;
+}
+
+.category-row input,
+.category-row select {
+  flex: 1;
+  min-width: 160px;
+}
+
+.category-row-count {
+  font-size: 12px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.category-row-label {
+  flex: 2;
+  min-width: 200px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.category-add-form {
+  margin: 12px 0 0;
+}
+
 .form {
   display: flex;
   flex-direction: column;

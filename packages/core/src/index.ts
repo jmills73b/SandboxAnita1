@@ -8,8 +8,6 @@ export {
 export type { SessionPayload } from "./auth";
 export { INVOICE_STATUSES, isValidInvoiceStatus } from "./invoiceStatus";
 export type { InvoiceStatus } from "./invoiceStatus";
-export { EXPENSE_CATEGORIES, isValidExpenseCategory } from "./expenseCategory";
-export type { ExpenseCategory } from "./expenseCategory";
 export {
   currentTaxYear,
   currentTaxYearStartYear,

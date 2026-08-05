@@ -1,6 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { EXPENSE_CATEGORIES } from "@sandboxanita1/core";
-import { addExpense, deleteExpense, getExpenses, updateExpense, type Expense } from "./api";
+import {
+  addExpense,
+  addExpenseCategory,
+  deleteExpense,
+  deleteExpenseCategory,
+  getExpenseCategories,
+  getExpenses,
+  renameExpenseCategory,
+  updateExpense,
+  type Expense,
+  type ExpenseCategory,
+} from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 // Plain "YYYY-MM-DD" parsed as UTC midnight — pin the zone or it rolls
@@ -13,20 +23,22 @@ function today(): string {
 
 export function ExpensesPage({ onBack }: { onBack: () => void }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
 
   const [date, setDate] = useState(today());
   const [description, setDescription] = useState("");
   const [cost, setCost] = useState("");
-  const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCost, setEditCost] = useState("");
-  const [editCategory, setEditCategory] = useState("");
+  const [editCategoryId, setEditCategoryId] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -36,7 +48,9 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   async function refresh() {
     setLoading(true);
     try {
-      setExpenses(await getExpenses());
+      const [expenseList, categoryList] = await Promise.all([getExpenses(), getExpenseCategories()]);
+      setExpenses(expenseList);
+      setCategories(categoryList);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load expenses");
     } finally {
@@ -66,7 +80,12 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
 
     setSubmitting(true);
     try {
-      await addExpense({ date, description: trimmedDescription, cost: amount, category: category || null });
+      await addExpense({
+        date,
+        description: trimmedDescription,
+        cost: amount,
+        categoryId: categoryId ? Number(categoryId) : null,
+      });
       setDescription("");
       setCost("");
       await refresh();
@@ -82,7 +101,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
     setEditDate(expense.date);
     setEditDescription(expense.description);
     setEditCost(String(expense.cost));
-    setEditCategory(expense.category ?? "");
+    setEditCategoryId(expense.categoryId !== null ? String(expense.categoryId) : "");
     setEditError(null);
   }
 
@@ -112,7 +131,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         date: editDate,
         description: trimmedDescription,
         cost: amount,
-        category: editCategory || null,
+        categoryId: editCategoryId ? Number(editCategoryId) : null,
       });
       setEditingId(null);
       await refresh();
@@ -138,7 +157,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   const trimmedSearch = search.trim().toLowerCase();
   const filteredExpenses = expenses.filter(
     (expense) =>
-      (categoryFilter === "all" || expense.category === categoryFilter) &&
+      (categoryFilter === "all" || String(expense.categoryId ?? "") === categoryFilter) &&
       expense.description.toLowerCase().includes(trimmedSearch),
   );
 
@@ -176,11 +195,11 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         <label className="sr-only" htmlFor="expense-category">
           Category
         </label>
-        <select id="expense-category" value={category} onChange={(event) => setCategory(event.target.value)}>
+        <select id="expense-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
           <option value="">No category</option>
-          {EXPENSE_CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
             </option>
           ))}
         </select>
@@ -201,12 +220,19 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         <button type="submit" disabled={submitting}>
           {submitting ? "Saving…" : "Add expense"}
         </button>
+        <button type="button" className="secondary" onClick={() => setShowCategoryManager((prev) => !prev)}>
+          {showCategoryManager ? "Hide categories" : "Manage categories"}
+        </button>
       </form>
 
       {error && (
         <p className="error" role="alert">
           {error}
         </p>
+      )}
+
+      {showCategoryManager && (
+        <CategoryManager categories={categories} expenses={expenses} onChanged={refresh} />
       )}
 
       {editingId !== null && (
@@ -232,11 +258,15 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
             </label>
             <label className="edit-field">
               <span>Category</span>
-              <select className="input-compact" value={editCategory} onChange={(event) => setEditCategory(event.target.value)}>
+              <select
+                className="input-compact"
+                value={editCategoryId}
+                onChange={(event) => setEditCategoryId(event.target.value)}
+              >
                 <option value="">No category</option>
-                {EXPENSE_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
                   </option>
                 ))}
               </select>
@@ -306,9 +336,9 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
             onChange={(event) => setCategoryFilter(event.target.value)}
           >
             <option value="all">All categories</option>
-            {EXPENSE_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
               </option>
             ))}
           </select>
@@ -357,5 +387,157 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         </div>
       )}
     </>
+  );
+}
+
+// Categories are admin-managed data, not a fixed list — renaming one is a
+// single field edit (every expense using it just picks up the new name),
+// but removing one needs an explicit answer to "what happens to the
+// expenses that used it", which is why delete surfaces a reassignment
+// picker inline rather than just confirming and orphaning them.
+function CategoryManager({
+  categories,
+  expenses,
+  onChanged,
+}: {
+  categories: ExpenseCategory[];
+  expenses: Expense[];
+  onChanged: () => Promise<void>;
+}) {
+  const [newName, setNewName] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [reassignTo, setReassignTo] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  function countFor(categoryId: number): number {
+    return expenses.filter((expense) => expense.categoryId === categoryId).length;
+  }
+
+  async function handleAdd(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      setError("Enter a category name");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await addExpenseCategory(trimmed);
+      setNewName("");
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't add that category");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function handleRename(id: number, name: string, previousName: string) {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === previousName) return;
+
+    setRenamingId(id);
+    setError(null);
+    try {
+      await renameExpenseCategory(id, trimmed);
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't rename that category");
+    } finally {
+      setRenamingId(null);
+    }
+  }
+
+  function startDelete(id: number) {
+    setDeletingId(id);
+    setReassignTo("");
+    setError(null);
+  }
+
+  async function confirmDelete(id: number) {
+    setError(null);
+    setBusy(true);
+    try {
+      await deleteExpenseCategory(id, reassignTo ? Number(reassignTo) : null);
+      setDeletingId(null);
+      await onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that category");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="edit-panel">
+      <p className="edit-panel-title">Manage categories</p>
+      {categories.map((cat) => {
+        const count = countFor(cat.id);
+        return (
+          <div className="category-row" key={cat.id}>
+            {deletingId === cat.id ? (
+              <>
+                <span className="category-row-label">
+                  Move {count} expense{count === 1 ? "" : "s"} tagged "{cat.name}" to:
+                </span>
+                <select value={reassignTo} onChange={(event) => setReassignTo(event.target.value)}>
+                  <option value="">Uncategorised</option>
+                  {categories
+                    .filter((other) => other.id !== cat.id)
+                    .map((other) => (
+                      <option key={other.id} value={other.id}>
+                        {other.name}
+                      </option>
+                    ))}
+                </select>
+                <button type="button" className="danger" onClick={() => confirmDelete(cat.id)} disabled={busy}>
+                  {busy ? "Deleting…" : "Confirm delete"}
+                </button>
+                <button type="button" onClick={() => setDeletingId(null)} disabled={busy}>
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <>
+                <input
+                  className="input-compact"
+                  defaultValue={cat.name}
+                  disabled={renamingId === cat.id}
+                  onBlur={(event) => handleRename(cat.id, event.target.value, cat.name)}
+                />
+                <span className="category-row-count">
+                  {count} expense{count === 1 ? "" : "s"}
+                </span>
+                <button type="button" className="danger" onClick={() => startDelete(cat.id)}>
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        );
+      })}
+
+      <form onSubmit={handleAdd} className="quick-add category-add-form">
+        <input
+          value={newName}
+          onChange={(event) => setNewName(event.target.value)}
+          placeholder="New category name"
+        />
+        <button type="submit" disabled={adding}>
+          {adding ? "Adding…" : "Add category"}
+        </button>
+      </form>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

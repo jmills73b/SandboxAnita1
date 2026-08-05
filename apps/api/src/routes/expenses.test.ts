@@ -10,25 +10,40 @@ async function sessionCookie(): Promise<string> {
   return `session=${token}`;
 }
 
-interface ExpenseRow {
+interface StoredExpense {
   id: number;
   date: string;
   description: string;
   cost: number;
-  category: string | null;
+  category_id: number | null;
 }
 
-// Same hand-written D1 stand-in approach as the other route tests.
+// A small stateful D1 stand-in — real enough to exercise the join-based
+// category lookups (categoryExists, fetchExpense) rather than hand-coding
+// every SQL branch's response, since expenses.ts now round-trips through
+// the database after every write instead of using RETURNING alone.
 function fakeEnv(
   options: {
-    listRows?: ExpenseRow[];
-    existingExpense?: ExpenseRow | null;
+    categories?: Map<number, string>;
+    expenses?: StoredExpense[];
     deleteChanges?: number;
   } = {},
 ): Env {
-  const listRows = options.listRows ?? [];
-  const existingExpense = options.existingExpense;
+  const categories = options.categories ?? new Map([[1, "Subscriptions"], [2, "Travel"]]);
+  const expensesStore = new Map<number, StoredExpense>((options.expenses ?? []).map((e) => [e.id, e]));
   const deleteChanges = options.deleteChanges ?? 1;
+  let nextId = Math.max(0, ...[...expensesStore.keys()]) + 1;
+
+  function withCategoryName(row: StoredExpense) {
+    return {
+      id: row.id,
+      date: row.date,
+      description: row.description,
+      cost: row.cost,
+      category_id: row.category_id,
+      category_name: row.category_id !== null ? (categories.get(row.category_id) ?? null) : null,
+    };
+  }
 
   return {
     SESSION_SECRET: SECRET,
@@ -41,21 +56,44 @@ function fakeEnv(
             return statement;
           },
           first: async <T,>() => {
+            if (sql.includes("FROM expense_categories WHERE id = ?")) {
+              const [id] = boundArgs as [number];
+              return categories.has(id) ? ({ id } as T) : null;
+            }
             if (sql.includes("INSERT INTO expenses")) {
-              const [date, description, cost, category] = boundArgs;
-              return { id: 1, date, description, cost, category: category ?? null } as T;
+              const [date, description, cost, categoryId] = boundArgs as [string, string, number, number | null];
+              const id = nextId++;
+              expensesStore.set(id, { id, date, description, cost, category_id: categoryId });
+              return { id } as T;
             }
-            if (sql.startsWith("SELECT id, date")) {
-              return (existingExpense ?? null) as T;
-            }
-            if (sql.includes("UPDATE expenses")) {
-              const [date, description, cost, category, id] = boundArgs;
-              return { id, date, description, cost, category } as T;
+            if (sql.includes("LEFT JOIN expense_categories") && sql.includes("WHERE expenses.id = ?")) {
+              const [id] = boundArgs as [number];
+              const row = expensesStore.get(id);
+              return (row ? withCategoryName(row) : null) as T;
             }
             return null;
           },
-          all: async <T,>() => ({ results: listRows as T[], success: true, meta: {} }),
-          run: async () => ({ success: true, meta: { changes: deleteChanges } }),
+          all: async <T,>() => {
+            if (sql.includes("LEFT JOIN expense_categories")) {
+              const rows = [...expensesStore.values()]
+                .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
+                .map(withCategoryName);
+              return { results: rows as T[], success: true, meta: {} };
+            }
+            return { results: [] as T[], success: true, meta: {} };
+          },
+          run: async () => {
+            if (sql.includes("UPDATE expenses SET")) {
+              const [date, description, cost, categoryId, id] = boundArgs as [string, string, number, number | null, number];
+              const existing = expensesStore.get(id);
+              if (existing) expensesStore.set(id, { ...existing, date, description, cost, category_id: categoryId });
+            }
+            if (sql.includes("DELETE FROM expenses")) {
+              const [id] = boundArgs as [number];
+              expensesStore.delete(id);
+            }
+            return { success: true, meta: { changes: deleteChanges } };
+          },
         };
         return statement;
       },
@@ -69,16 +107,18 @@ describe("GET /api/expenses", () => {
     expect(res.status).toBe(401);
   });
 
-  it("lists expenses", async () => {
+  it("lists expenses with their category name resolved", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/expenses",
       { headers: { Cookie: cookie } },
-      fakeEnv({ listRows: [{ id: 1, date: "2026-06-01", description: "Printer paper", cost: 12.5, category: "Stationery & Postage" }] }),
+      fakeEnv({ expenses: [{ id: 1, date: "2026-06-01", description: "Printer paper", cost: 12.5, category_id: 2 }] }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual([{ id: 1, date: "2026-06-01", description: "Printer paper", cost: 12.5, category: "Stationery & Postage" }]);
+    expect(body).toEqual([
+      { id: 1, date: "2026-06-01", description: "Printer paper", cost: 12.5, categoryId: 2, category: "Travel" },
+    ]);
   });
 });
 
@@ -108,14 +148,14 @@ describe("POST /api/expenses", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects an invalid category", async () => {
+  it("rejects a categoryId that doesn't exist", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/expenses",
       {
         method: "POST",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ date: "2026-06-01", description: "Stamps", cost: 5, category: "Groceries" }),
+        body: JSON.stringify({ date: "2026-06-01", description: "Stamps", cost: 5, categoryId: 999 }),
       },
       fakeEnv(),
     );
@@ -131,28 +171,29 @@ describe("POST /api/expenses", () => {
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body).toEqual({ id: 1, date: "2026-06-01", description: "Stamps", cost: 5, category: null });
+    expect(body).toEqual({ id: 1, date: "2026-06-01", description: "Stamps", cost: 5, categoryId: null, category: null });
   });
 
-  it("creates an expense with a preset category", async () => {
+  it("creates an expense with a valid category and resolves its name", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/expenses",
       {
         method: "POST",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ date: "2026-06-01", description: "Zoom subscription", cost: 15.99, category: "Subscriptions" }),
+        body: JSON.stringify({ date: "2026-06-01", description: "Zoom subscription", cost: 15.99, categoryId: 1 }),
       },
       fakeEnv(),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
+    expect(body.categoryId).toBe(1);
     expect(body.category).toBe("Subscriptions");
   });
 });
 
 describe("PATCH /api/expenses/:id", () => {
-  const EXISTING: ExpenseRow = { id: 1, date: "2026-06-01", description: "Stamps", cost: 5, category: null };
+  const EXISTING: StoredExpense = { id: 1, date: "2026-06-01", description: "Stamps", cost: 5, category_id: null };
 
   it("rejects a request with no session", async () => {
     const res = await app.request("/api/expenses/1", { method: "PATCH" }, fakeEnv());
@@ -164,21 +205,21 @@ describe("PATCH /api/expenses/:id", () => {
     const res = await app.request(
       "/api/expenses/99",
       { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ cost: 10 }) },
-      fakeEnv({ existingExpense: null }),
+      fakeEnv({ expenses: [] }),
     );
     expect(res.status).toBe(404);
   });
 
-  it("updates the cost and category", async () => {
+  it("updates the cost and category, resolving the new category's name", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/expenses/1",
       {
         method: "PATCH",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ cost: 7.5, category: "Travel" }),
+        body: JSON.stringify({ cost: 7.5, categoryId: 2 }),
       },
-      fakeEnv({ existingExpense: EXISTING }),
+      fakeEnv({ expenses: [EXISTING] }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -206,7 +247,11 @@ describe("DELETE /api/expenses/:id", () => {
 
   it("deletes the expense", async () => {
     const cookie = await sessionCookie();
-    const res = await app.request("/api/expenses/1", { method: "DELETE", headers: { Cookie: cookie } }, fakeEnv());
+    const res = await app.request(
+      "/api/expenses/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({ expenses: [{ id: 1, date: "2026-06-01", description: "Stamps", cost: 5, category_id: null }] }),
+    );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
   });
