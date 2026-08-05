@@ -501,7 +501,32 @@ button.secondary {
 .performance-heading {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.target-line {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.perf {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.perf-positive {
+  color: var(--ink);
+}
+
+.perf-negative {
+  color: var(--error);
+}
+
+.perf-pending {
+  color: var(--ink-soft);
+  font-weight: 400;
+  font-style: italic;
 }
 
 .client-stats {

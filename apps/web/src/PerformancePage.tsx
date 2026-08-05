@@ -94,6 +94,13 @@ function percentOfTarget(actual: number, target: number): number {
   return target > 0 ? (actual / target) * 100 : 0;
 }
 
+// How far a month sits from its target, as a signed delta rather than a
+// raw percentage — "+20%" or "-35%" reads faster than "120% of target" in
+// a table where every row needs scanning at a glance.
+function targetDelta(actual: number, target: number): number {
+  return target > 0 ? Math.round((actual / target - 1) * 100) : 0;
+}
+
 export function PerformancePage({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [settings, setSettings] = useState<TaxYearSettings | null>(null);
@@ -280,6 +287,9 @@ function PerformanceSummary({
           <span className={`status ${targetStatusClass(headlineActual, headlineTarget)}`}>
             {targetStatusLabel(headlineActual, headlineTarget, isCurrentYear)}
           </span>
+          <span className="target-line">
+            Target <strong>{money.format(target)}</strong>/month
+          </span>
         </div>
         <button type="button" className="secondary" onClick={onEditTarget}>
           Edit target
@@ -309,8 +319,7 @@ function PerformanceSummary({
             <tr>
               <th>Month</th>
               <th>{amountColumnLabel}</th>
-              <th>Target</th>
-              <th>Status</th>
+              <th>Performance</th>
             </tr>
           </thead>
           <tbody>
@@ -324,11 +333,8 @@ function PerformanceSummary({
                   <tr key={key}>
                     <td>{monthLabel(key)}</td>
                     <td>{money.format(actual)}</td>
-                    <td>{money.format(target)}</td>
                     <td>
-                      <span className={`status ${targetStatusClass(actual, target)}`}>
-                        {targetStatusLabel(actual, target, pending)}
-                      </span>
+                      <MonthPerformance actual={actual} target={target} pending={pending} />
                     </td>
                   </tr>
                 );
@@ -337,6 +343,22 @@ function PerformanceSummary({
         </table>
       </div>
     </>
+  );
+}
+
+// The current, still-running month gets a muted "so far" reading rather
+// than a red minus — it hasn't had its full month to hit the target yet,
+// so a hard shortfall figure would read as a miss that hasn't happened.
+function MonthPerformance({ actual, target, pending }: { actual: number; target: number; pending: boolean }) {
+  const delta = targetDelta(actual, target);
+  const sign = delta > 0 ? "+" : "";
+  const className = pending ? "perf-pending" : delta < 0 ? "perf-negative" : "perf-positive";
+
+  return (
+    <span className={`perf ${className}`}>
+      {sign}
+      {delta}%{pending ? " so far" : ""}
+    </span>
   );
 }
 
