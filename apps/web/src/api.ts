@@ -445,3 +445,12 @@ export function updateTimeEntry(
 export function deleteTimeEntry(id: number): Promise<{ ok: boolean }> {
   return request(`/api/time-entries/${id}`, { method: "DELETE" });
 }
+
+export interface ExportData {
+  exportedAt: string;
+  tables: Record<string, unknown[]>;
+}
+
+export function exportAllData(): Promise<ExportData> {
+  return request("/api/export");
+}
