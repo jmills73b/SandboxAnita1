@@ -104,6 +104,16 @@ h1 {
   margin: -14px 0 20px;
 }
 
+.auth-mode-toggle {
+  margin-bottom: 20px;
+  width: fit-content;
+}
+
+.auth-mode-toggle button {
+  flex: 1;
+  padding: 10px 16px;
+}
+
 /* Wordmark — the one place brand personality shows in the chrome itself */
 .brand {
   display: flex;
