@@ -30,7 +30,7 @@ function CategoryChips({
   onToggle: (id: number) => void;
 }) {
   if (categories.length === 0) {
-    return <p className="hint">No categories yet — add some from "Manage categories" below.</p>;
+    return <p className="empty">No categories yet — add some from "Manage categories" below.</p>;
   }
 
   return (
