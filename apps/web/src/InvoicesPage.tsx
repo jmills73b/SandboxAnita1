@@ -31,10 +31,93 @@ function lagLabel(days: number | null): string {
 
 type View = { kind: "ledger" } | { kind: "client"; clientId: number };
 
+type ClientMode = "existing" | "new";
+
+// Replaces the old free-text input + native <datalist> — datalist looks
+// like a bare, unstyled system list (and barely works on iOS Safari at
+// all), which is what made the client field feel like "here's every
+// client dumped on you" rather than a deliberate choice. A plain toggle
+// between an actual dropdown of existing clients and a name field for a
+// new one is explicit about which you're doing, and both halves are real,
+// reliable form controls.
+function ClientPicker({
+  clients,
+  mode,
+  onModeChange,
+  name,
+  onNameChange,
+  fieldId,
+  compact,
+  autoFocus,
+}: {
+  clients: Client[];
+  mode: ClientMode;
+  onModeChange: (mode: ClientMode) => void;
+  name: string;
+  onNameChange: (name: string) => void;
+  fieldId: string;
+  compact?: boolean;
+  autoFocus?: boolean;
+}) {
+  const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name));
+  const fieldClass = compact ? "input-compact" : undefined;
+
+  function switchMode(next: ClientMode) {
+    onModeChange(next);
+    onNameChange("");
+  }
+
+  return (
+    <div className="client-picker">
+      <div className="mode-toggle mode-toggle-compact" role="group" aria-label="Client type">
+        <button type="button" className={mode === "existing" ? "active" : ""} onClick={() => switchMode("existing")}>
+          Existing client
+        </button>
+        <button type="button" className={mode === "new" ? "active" : ""} onClick={() => switchMode("new")}>
+          New client
+        </button>
+      </div>
+      <label className="sr-only" htmlFor={fieldId}>
+        Client
+      </label>
+      {mode === "existing" ? (
+        <select
+          id={fieldId}
+          className={fieldClass}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          autoFocus={autoFocus}
+          required
+        >
+          <option value="" disabled>
+            {sortedClients.length === 0 ? "No existing clients yet" : "Select a client…"}
+          </option>
+          {sortedClients.map((client) => (
+            <option key={client.id} value={client.name}>
+              {client.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={fieldId}
+          className={fieldClass}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          placeholder="New client name"
+          autoFocus={autoFocus}
+          required
+        />
+      )}
+    </div>
+  );
+}
+
 export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [invoiceDate, setInvoiceDate] = useState(today());
+  const [clientMode, setClientMode] = useState<ClientMode>("existing");
   const [clientName, setClientName] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +126,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [view, setView] = useState<View>({ kind: "ledger" });
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
+  const [editClientMode, setEditClientMode] = useState<ClientMode>("existing");
   const [editClientName, setEditClientName] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editSettledClient, setEditSettledClient] = useState("");
@@ -116,6 +200,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   function startEdit(invoice: Invoice) {
     setEditingId(invoice.id);
     setEditDate(invoice.invoiceDate);
+    setEditClientMode("existing");
     setEditClientName(invoice.clientName);
     setEditAmount(String(invoice.totalAmount));
     setEditSettledClient(invoice.dateSettledClient ?? "");
@@ -212,23 +297,15 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
           onChange={(event) => setInvoiceDate(event.target.value)}
           required
         />
-        <label className="sr-only" htmlFor="invoice-client">
-          Client name
-        </label>
-        <input
-          id="invoice-client"
-          list="client-options"
-          value={clientName}
-          onChange={(event) => setClientName(event.target.value)}
-          placeholder="Client name"
-          required
+        <ClientPicker
+          clients={clients}
+          mode={clientMode}
+          onModeChange={setClientMode}
+          name={clientName}
+          onNameChange={setClientName}
+          fieldId="invoice-client"
           autoFocus
         />
-        <datalist id="client-options">
-          {clients.map((client) => (
-            <option key={client.id} value={client.name} />
-          ))}
-        </datalist>
         <label className="sr-only" htmlFor="invoice-amount">
           Amount
         </label>
@@ -267,15 +344,18 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                 onChange={(event) => setEditDate(event.target.value)}
               />
             </label>
-            <label className="edit-field">
+            <div className="edit-field">
               <span>Client</span>
-              <input
-                list="client-options"
-                className="input-compact"
-                value={editClientName}
-                onChange={(event) => setEditClientName(event.target.value)}
+              <ClientPicker
+                clients={clients}
+                mode={editClientMode}
+                onModeChange={setEditClientMode}
+                name={editClientName}
+                onNameChange={setEditClientName}
+                fieldId="edit-client"
+                compact
               />
-            </label>
+            </div>
             <label className="edit-field">
               <span>Amount</span>
               <input
