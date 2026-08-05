@@ -215,3 +215,62 @@ export function createInvoiceBatch(input: {
 }): Promise<InvoiceBatchDetail> {
   return request("/api/invoice-batches", { method: "POST", body: JSON.stringify(input) });
 }
+
+export interface ExpenseCategory {
+  id: number;
+  name: string;
+}
+
+export function getExpenseCategories(): Promise<ExpenseCategory[]> {
+  return request("/api/expense-categories");
+}
+
+export function addExpenseCategory(name: string): Promise<ExpenseCategory> {
+  return request("/api/expense-categories", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function renameExpenseCategory(id: number, name: string): Promise<ExpenseCategory> {
+  return request(`/api/expense-categories/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+// reassignToId: where this category's existing expenses go once it's
+// gone — another category's id, or null to leave them uncategorised.
+export function deleteExpenseCategory(id: number, reassignToId: number | null): Promise<{ ok: boolean }> {
+  return request(`/api/expense-categories/${id}`, {
+    method: "DELETE",
+    body: JSON.stringify({ reassignToId }),
+  });
+}
+
+export interface Expense {
+  id: number;
+  date: string;
+  description: string;
+  cost: number;
+  categoryId: number | null;
+  category: string | null;
+}
+
+export function getExpenses(): Promise<Expense[]> {
+  return request("/api/expenses");
+}
+
+export function addExpense(input: {
+  date: string;
+  description: string;
+  cost: number;
+  categoryId?: number | null;
+}): Promise<Expense> {
+  return request("/api/expenses", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateExpense(
+  id: number,
+  patch: Partial<{ date: string; description: string; cost: number; categoryId: number | null }>,
+): Promise<Expense> {
+  return request(`/api/expenses/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteExpense(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/expenses/${id}`, { method: "DELETE" });
+}

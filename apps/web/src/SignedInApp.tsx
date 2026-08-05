@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { logout } from "./api";
 import { Dashboard, type DashboardTile } from "./Dashboard";
+import { ExpensesPage } from "./ExpensesPage";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
@@ -33,6 +34,7 @@ export function SignedInApp({
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
       {screen.kind === "invoice-generator" && <InvoiceGeneratorPage onBack={goHome} />}
+      {screen.kind === "expenses" && <ExpensesPage onBack={goHome} />}
     </main>
   );
 }

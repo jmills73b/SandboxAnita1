@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import auth from "./routes/auth";
 import clients from "./routes/clients";
+import expenseCategories from "./routes/expenseCategories";
+import expenses from "./routes/expenses";
 import firms from "./routes/firms";
 import invoiceBatches from "./routes/invoiceBatches";
 import invoiceSettings from "./routes/invoiceSettings";
@@ -32,6 +34,8 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 app.route("/api", auth);
 app.route("/api/clients", clients);
+app.route("/api/expenses", expenses);
+app.route("/api/expense-categories", expenseCategories);
 app.route("/api/firms", firms);
 app.route("/api/invoices", invoices);
 app.route("/api/invoice-batches", invoiceBatches);
