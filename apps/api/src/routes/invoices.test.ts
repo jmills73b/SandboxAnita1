@@ -270,20 +270,20 @@ describe("PATCH /api/invoices/:id", () => {
     expect(res.status).toBe(400);
   });
 
-  it("stamps date_settled_client on reaching Settled by client", async () => {
+  it("stamps date_settled_client on reaching Paid to Newmans", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/invoices/1",
       {
         method: "PATCH",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ status: "Settled by client" }),
+        body: JSON.stringify({ status: "Paid to Newmans" }),
       },
       fakeEnv({ existingInvoice: EXISTING_INVOICE, clientName: "Smith" }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.status).toBe("Settled by client");
+    expect(body.status).toBe("Paid to Newmans");
     expect(body.dateSettledClient).toBeTruthy();
     expect(body.dateSettledFirm).toBeNull();
   });
@@ -294,7 +294,7 @@ describe("PATCH /api/invoices/:id", () => {
       "/api/invoices/1",
       { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "Complete" }) },
       fakeEnv({
-        existingInvoice: { ...EXISTING_INVOICE, status: "Settled by client", date_settled_client: "2026-04-05" },
+        existingInvoice: { ...EXISTING_INVOICE, status: "Paid to Newmans", date_settled_client: "2026-04-05" },
         clientName: "Smith",
       }),
     );

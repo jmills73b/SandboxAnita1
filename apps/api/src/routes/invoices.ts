@@ -157,7 +157,7 @@ invoices.patch("/:id", async (c) => {
   // takes priority over that automatic behaviour.
   const reachedIndex = INVOICE_STATUSES.indexOf(status as (typeof INVOICE_STATUSES)[number]);
   const autoSettledClient =
-    reachedIndex >= INVOICE_STATUSES.indexOf("Settled by client")
+    reachedIndex >= INVOICE_STATUSES.indexOf("Paid to Newmans")
       ? (existing.date_settled_client ?? today())
       : null;
   const autoSettledFirm =
