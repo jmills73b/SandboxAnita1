@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel } from "@sandboxanita1/core";
+import { currentTaxYearStartYear, recentTaxYearStartYears, taxMonthKey, taxYearLabel } from "@sandboxanita1/core";
 import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
@@ -7,10 +7,6 @@ const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numer
 const monthAbbrevFmt = new Intl.DateTimeFormat("en-GB", { month: "short" });
 
 const YEAR_OPTIONS = 6;
-
-function monthKey(dateStr: string): string {
-  return dateStr.slice(0, 7);
-}
 
 // key is always our own "YYYY-MM" (see taxYearMonthKeys/toMonthKey), so
 // fixed slicing is simpler and safer here than destructuring a split() array.
@@ -30,8 +26,16 @@ function toMonthKey(date: Date): string {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function todayISO(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+}
+
+// "This month" means the current tax month, same convention as
+// taxMonthKey above — otherwise, on the 1st-5th, this would look up a
+// bucket that no income settled in those exact days would ever land in.
 function currentMonthKey(): string {
-  return toMonthKey(new Date());
+  return taxMonthKey(todayISO());
 }
 
 // April of startYear through March of startYear + 1. For the current tax
@@ -54,7 +58,7 @@ function incomeByMonth(invoices: Invoice[]): Map<string, number> {
   const totals = new Map<string, number>();
   for (const invoice of invoices) {
     if (!invoice.dateSettledFirm) continue;
-    const key = monthKey(invoice.dateSettledFirm);
+    const key = taxMonthKey(invoice.dateSettledFirm);
     totals.set(key, (totals.get(key) ?? 0) + invoice.anitaIncome);
   }
   return totals;

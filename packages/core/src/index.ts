@@ -12,6 +12,7 @@ export {
   currentTaxYear,
   currentTaxYearStartYear,
   recentTaxYearStartYears,
+  taxMonthKey,
   taxYearLabel,
   taxYearStartDate,
 } from "./taxYear";
