@@ -3,9 +3,9 @@
 // options) so there's one definition of the workflow, not three.
 export const INVOICE_STATUSES = [
   "In progress",
-  "Invoice sent to client",
-  "Settled by client",
-  "Invoice sent to intermediary firm",
+  "Awaiting client payment",
+  "Paid to Newmans",
+  "Awaiting payment to Anita",
   "Complete",
 ] as const;
 

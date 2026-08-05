@@ -337,9 +337,9 @@ button.client-link:hover {
   color: var(--ink-faint);
 }
 
-.status-invoice-sent-to-client,
-.status-settled-by-client,
-.status-invoice-sent-to-intermediary-firm {
+.status-awaiting-client-payment,
+.status-paid-to-newmans,
+.status-awaiting-payment-to-anita {
   background: transparent;
 }
 
