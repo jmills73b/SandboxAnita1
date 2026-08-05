@@ -233,6 +233,28 @@ button.brand {
   color: var(--paper);
 }
 
+.client-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.client-picker select,
+.client-picker input {
+  width: 100%;
+}
+
+.mode-toggle-compact {
+  align-self: flex-start;
+}
+
+.mode-toggle-compact button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .mode-caption {
   color: var(--ink-soft);
   font-size: 13px;
@@ -308,6 +330,67 @@ button.client-link {
 a.client-link:hover,
 button.client-link:hover {
   text-decoration-color: var(--ink);
+}
+
+/* Performance table's month rows expand in place to show the invoices
+   behind that month's total — a nested table in a spanning cell right
+   below the row it belongs to, rather than a separate page or modal. */
+.month-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.chevron {
+  display: inline-block;
+  width: 9px;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.month-row.expanded {
+  background: var(--paper-raised);
+}
+
+.month-detail-row td {
+  white-space: normal;
+  padding: 0 10px 16px;
+  background: var(--paper-raised);
+}
+
+.month-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.month-detail-table th {
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-strong);
+  white-space: nowrap;
+}
+
+.month-detail-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.month-detail-empty {
+  margin: 4px 0 0;
+  font-size: 13px;
 }
 
 /* Status: fill, outline, and line-weight carry the meaning colour usually

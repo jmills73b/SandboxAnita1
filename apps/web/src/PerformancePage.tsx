@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxMonthKey, taxYearLabel } from "@sandboxanita1/core";
 import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
 
@@ -9,6 +9,7 @@ const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP
 // anyone west of UTC, exactly like the invoice date bug in InvoicesPage.
 const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 const monthAbbrevFmt = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
+const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 const YEAR_OPTIONS = 6;
 
@@ -24,6 +25,13 @@ function monthAbbrev(key: string): string {
   const year = Number(key.slice(0, 4));
   const month = Number(key.slice(5, 7));
   return monthAbbrevFmt.format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function dayLabel(dateStr: string): string {
+  const year = Number(dateStr.slice(0, 4));
+  const month = Number(dateStr.slice(5, 7));
+  const day = Number(dateStr.slice(8, 10));
+  return dayFmt.format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 function toMonthKey(date: Date): string {
@@ -63,16 +71,37 @@ type PerformanceMode = "paid" | "all";
 // every invoice, falling back through whichever date is known: paid to
 // Anita, else paid to Newmans, else the invoice date itself — so work
 // still shows up before it's fully settled.
-function incomeByMonth(invoices: Invoice[], mode: PerformanceMode): Map<string, number> {
-  const totals = new Map<string, number>();
+function effectiveDateFor(invoice: Invoice, mode: PerformanceMode): string | null {
+  return mode === "paid"
+    ? invoice.dateSettledFirm
+    : (invoice.dateSettledFirm ?? invoice.dateSettledClient ?? invoice.invoiceDate);
+}
+
+// Which of the three dates actually decided an invoice's bucket in "all"
+// mode — surfaced in the breakdown so "why is this invoice in this month"
+// has a visible answer, rather than needing another round of "I don't
+// recognise this figure" the way the tax-month bucketing did originally.
+function effectiveDateSourceLabel(invoice: Invoice): string {
+  if (invoice.dateSettledFirm) return "Paid to Anita";
+  if (invoice.dateSettledClient) return "Paid to Newmans";
+  return "Invoiced";
+}
+
+function invoicesByMonth(invoices: Invoice[], mode: PerformanceMode): Map<string, Invoice[]> {
+  const grouped = new Map<string, Invoice[]>();
   for (const invoice of invoices) {
-    const effectiveDate =
-      mode === "paid" ? invoice.dateSettledFirm : (invoice.dateSettledFirm ?? invoice.dateSettledClient ?? invoice.invoiceDate);
-    if (!effectiveDate) continue;
-    const key = taxMonthKey(effectiveDate);
-    totals.set(key, (totals.get(key) ?? 0) + invoice.anitaIncome);
+    const date = effectiveDateFor(invoice, mode);
+    if (!date) continue;
+    const key = taxMonthKey(date);
+    const bucket = grouped.get(key);
+    if (bucket) bucket.push(invoice);
+    else grouped.set(key, [invoice]);
   }
-  return totals;
+  return grouped;
+}
+
+function monthTotal(monthInvoices: Invoice[] | undefined): number {
+  return (monthInvoices ?? []).reduce((sum, invoice) => sum + invoice.anitaIncome, 0);
 }
 
 function targetStatusClass(actual: number, target: number): string {
@@ -265,8 +294,14 @@ function PerformanceSummary({
   mode: PerformanceMode;
   onEditTarget: () => void;
 }) {
+  const [expandedMonth, setExpandedMonth] = useState<string | null>(null);
+
   const isCurrentYear = startYear === currentTaxYearStartYear();
-  const monthlyTotals = incomeByMonth(invoices, mode);
+  const monthGroups = invoicesByMonth(invoices, mode);
+  const monthlyTotals = new Map<string, number>();
+  for (const [key, monthInvoices] of monthGroups) {
+    monthlyTotals.set(key, monthTotal(monthInvoices));
+  }
   const monthKeys = taxYearMonthKeys(startYear, isCurrentYear);
   const amountColumnLabel = mode === "paid" ? "Received" : "Invoiced";
 
@@ -329,14 +364,36 @@ function PerformanceSummary({
               .map((key) => {
                 const actual = monthlyTotals.get(key) ?? 0;
                 const pending = isCurrentYear && key === thisMonthKey;
+                const expanded = expandedMonth === key;
                 return (
-                  <tr key={key}>
-                    <td>{monthLabel(key)}</td>
-                    <td>{money.format(actual)}</td>
-                    <td>
-                      <MonthPerformance actual={actual} target={target} pending={pending} />
-                    </td>
-                  </tr>
+                  <Fragment key={key}>
+                    <tr className={expanded ? "month-row expanded" : "month-row"}>
+                      <td>
+                        <button
+                          type="button"
+                          className="month-toggle"
+                          onClick={() => setExpandedMonth(expanded ? null : key)}
+                          aria-expanded={expanded}
+                        >
+                          <span className="chevron" aria-hidden="true">
+                            {expanded ? "▾" : "▸"}
+                          </span>
+                          {monthLabel(key)}
+                        </button>
+                      </td>
+                      <td>{money.format(actual)}</td>
+                      <td>
+                        <MonthPerformance actual={actual} target={target} pending={pending} />
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="month-detail-row">
+                        <td colSpan={3}>
+                          <MonthBreakdown invoices={monthGroups.get(key) ?? []} mode={mode} />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
           </tbody>
@@ -359,6 +416,50 @@ function MonthPerformance({ actual, target, pending }: { actual: number; target:
       {sign}
       {delta}%{pending ? " so far" : ""}
     </span>
+  );
+}
+
+// The per-invoice list behind a month's total. In "all" mode each row also
+// says which date actually put it in this bucket — paid to Anita, paid to
+// Newmans, or just invoiced — since that's the exact question this feature
+// exists to answer.
+function MonthBreakdown({ invoices, mode }: { invoices: Invoice[]; mode: PerformanceMode }) {
+  if (invoices.length === 0) {
+    return <p className="empty month-detail-empty">No invoices in this period.</p>;
+  }
+
+  const sorted = [...invoices].sort((a, b) => {
+    const dateA = effectiveDateFor(a, mode) ?? "";
+    const dateB = effectiveDateFor(b, mode) ?? "";
+    return dateA.localeCompare(dateB);
+  });
+
+  return (
+    <table className="month-detail-table">
+      <thead>
+        <tr>
+          <th>Client</th>
+          <th>Date</th>
+          {mode === "all" && <th>Basis</th>}
+          <th>Amount</th>
+          <th>Your share</th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((invoice) => {
+          const date = effectiveDateFor(invoice, mode);
+          return (
+            <tr key={invoice.id}>
+              <td>{invoice.clientName}</td>
+              <td>{date ? dayLabel(date) : "—"}</td>
+              {mode === "all" && <td>{effectiveDateSourceLabel(invoice)}</td>}
+              <td>{money.format(invoice.totalAmount)}</td>
+              <td>{money.format(invoice.anitaIncome)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
