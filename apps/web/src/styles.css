@@ -807,6 +807,60 @@ button.secondary {
   font-variant-numeric: tabular-nums;
 }
 
+.tax-breakdown {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 14px 16px;
+}
+
+.tax-breakdown-lines {
+  margin: 10px 0 0;
+}
+
+.tax-breakdown-lines > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tax-breakdown-lines dt {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.tax-breakdown-lines dd {
+  margin: 0;
+  font-size: 13px;
+}
+
+.tax-breakdown-subtotal {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 8px !important;
+}
+
+.tax-breakdown-subtotal dt,
+.tax-breakdown-subtotal dd {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.tax-breakdown-total {
+  border-top: 1px solid var(--line-strong);
+  margin-top: 8px;
+  padding-top: 10px !important;
+}
+
+.tax-breakdown-total dt,
+.tax-breakdown-total dd {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
 /* A hand-rolled bar chart — no charting library needed for twelve bars.
    Bar and target-line heights are set inline as percentages of a fixed
    pixel container, so they need no JS on resize. */
