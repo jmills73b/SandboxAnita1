@@ -31,7 +31,7 @@ function lagLabel(days: number | null): string {
 
 type View = { kind: "ledger" } | { kind: "client"; clientId: number };
 
-type ClientMode = "existing" | "new";
+export type ClientMode = "existing" | "new";
 
 // Replaces the old free-text input + native <datalist> — datalist looks
 // like a bare, unstyled system list (and barely works on iOS Safari at
@@ -39,8 +39,10 @@ type ClientMode = "existing" | "new";
 // client dumped on you" rather than a deliberate choice. A plain toggle
 // between an actual dropdown of existing clients and a name field for a
 // new one is explicit about which you're doing, and both halves are real,
-// reliable form controls.
-function ClientPicker({
+// reliable form controls. Exported so other pages that also log things
+// against a client (e.g. time entries) can reuse it rather than
+// duplicating the toggle/dropdown/create-on-the-fly logic.
+export function ClientPicker({
   clients,
   mode,
   onModeChange,

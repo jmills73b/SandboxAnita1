@@ -6,10 +6,14 @@ import clients from "./routes/clients";
 import expenseCategories from "./routes/expenseCategories";
 import expenses from "./routes/expenses";
 import firms from "./routes/firms";
+import hourlyRates from "./routes/hourlyRates";
 import invoiceBatches from "./routes/invoiceBatches";
 import invoiceSettings from "./routes/invoiceSettings";
 import invoices from "./routes/invoices";
 import taxYearSettings from "./routes/taxYearSettings";
+import timeCategories from "./routes/timeCategories";
+import timeEntries from "./routes/timeEntries";
+import timeSettings from "./routes/timeSettings";
 
 export interface Env {
   DB: D1Database;
@@ -39,9 +43,13 @@ app.route("/api/clients", clients);
 app.route("/api/expenses", expenses);
 app.route("/api/expense-categories", expenseCategories);
 app.route("/api/firms", firms);
+app.route("/api/hourly-rates", hourlyRates);
 app.route("/api/invoices", invoices);
 app.route("/api/invoice-batches", invoiceBatches);
 app.route("/api/invoice-settings", invoiceSettings);
 app.route("/api/tax-year-settings", taxYearSettings);
+app.route("/api/time-categories", timeCategories);
+app.route("/api/time-entries", timeEntries);
+app.route("/api/time-settings", timeSettings);
 
 export default app;
