@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { logout } from "./api";
+import { ClientsPage } from "./ClientsPage";
 import { Dashboard, type DashboardTile } from "./Dashboard";
 import { ExpensesPage } from "./ExpensesPage";
 import { InviteCodePanel } from "./InviteCodePanel";
@@ -45,6 +46,7 @@ export function SignedInApp({
       {screen.kind === "expenses" && <ExpensesPage onBack={goHome} />}
       {screen.kind === "tax" && <TaxPage onBack={goHome} />}
       {screen.kind === "time" && <TimeKeepingPage onBack={goHome} />}
+      {screen.kind === "clients" && <ClientsPage onBack={goHome} />}
     </main>
   );
 }

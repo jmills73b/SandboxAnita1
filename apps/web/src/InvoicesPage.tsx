@@ -180,7 +180,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
       // A client typed here that doesn't already exist just gets created —
       // no separate "add a client first" step (story 1.7).
       const existing = clients.find((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
-      const clientId = existing ? existing.id : (await addClient(trimmedName)).id;
+      const clientId = existing ? existing.id : (await addClient({ name: trimmedName })).id;
 
       await addInvoice({
         invoiceDate,
@@ -247,7 +247,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     setEditSubmitting(true);
     try {
       const existing = clients.find((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
-      const clientId = existing ? existing.id : (await addClient(trimmedName)).id;
+      const clientId = existing ? existing.id : (await addClient({ name: trimmedName })).id;
 
       await updateInvoice(id, {
         invoiceDate: editDate,
