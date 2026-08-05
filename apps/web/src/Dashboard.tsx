@@ -12,6 +12,12 @@ const TILES = [
     active: true,
   },
   {
+    key: "invoice-generator",
+    name: "Invoice Generator",
+    desc: "Bill Newmans for invoices awaiting payment, and see past invoices sent.",
+    active: true,
+  },
+  {
     key: "expenses",
     name: "Expenses",
     desc: "Log and categorise business expenses.",

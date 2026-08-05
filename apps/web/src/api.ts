@@ -61,6 +61,8 @@ export interface Invoice {
   anitaIncome: number;
   status: string;
   reference: string | null;
+  matter: string | null;
+  batchId: number | null;
   dateSettledClient: string | null;
   dateSettledFirm: string | null;
   lagDays: number | null;
@@ -74,6 +76,8 @@ export function addInvoice(input: {
   invoiceDate: string;
   clientId: number;
   totalAmount: number;
+  reference?: string;
+  matter?: string;
 }): Promise<Invoice> {
   return request("/api/invoices", { method: "POST", body: JSON.stringify(input) });
 }
@@ -84,6 +88,8 @@ export function updateInvoice(
     invoiceDate: string;
     clientId: number;
     totalAmount: number;
+    reference: string | null;
+    matter: string | null;
     status: string;
     dateSettledClient: string | null;
     dateSettledFirm: string | null;
@@ -113,4 +119,99 @@ export function setTaxYearTarget(startYear: number, monthlyTarget: number): Prom
     method: "POST",
     body: JSON.stringify({ monthlyTarget }),
   });
+}
+
+export interface Firm {
+  id: number;
+  name: string;
+  contactEmail: string | null;
+  contactAddress: string | null;
+  contactPostcode: string | null;
+  contactPhone: string | null;
+}
+
+export function getFirms(): Promise<Firm[]> {
+  return request("/api/firms");
+}
+
+export function updateFirm(
+  id: number,
+  patch: Partial<{
+    contactEmail: string | null;
+    contactAddress: string | null;
+    contactPostcode: string | null;
+    contactPhone: string | null;
+  }>,
+): Promise<Firm> {
+  return request(`/api/firms/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export interface InvoiceSettings {
+  fromName: string;
+  fromEmail: string;
+  fromAddress: string;
+  fromPostcode: string;
+  fromPhone: string;
+  bankAccountName: string;
+  bankSortCode: string;
+  bankAccountNumber: string;
+  referencePrefix: string;
+  nextReferenceNumber: number;
+}
+
+export function getInvoiceSettings(): Promise<InvoiceSettings> {
+  return request("/api/invoice-settings");
+}
+
+export function updateInvoiceSettings(settings: InvoiceSettings): Promise<InvoiceSettings> {
+  return request("/api/invoice-settings", { method: "PUT", body: JSON.stringify(settings) });
+}
+
+export interface InvoiceBatchSummary {
+  id: number;
+  reference: string;
+  invoiceDate: string;
+  totalFee: number;
+  totalAmountDue: number;
+  billToName: string;
+  createdAt: string;
+}
+
+export interface InvoiceBatchLineItem {
+  id: number;
+  invoiceDate: string;
+  fileNo: string | null;
+  matter: string | null;
+  clientName: string;
+  totalAmount: number;
+  anitaIncome: number;
+}
+
+export interface InvoiceBatchDetail {
+  id: number;
+  reference: string;
+  invoiceDate: string;
+  totalFee: number;
+  totalAmountDue: number;
+  createdAt: string;
+  from: { name: string; email: string; address: string; postcode: string; phone: string };
+  billTo: { name: string; email: string; address: string; postcode: string; phone: string };
+  bank: { accountName: string; sortCode: string; accountNumber: string };
+  lineItems: InvoiceBatchLineItem[];
+}
+
+export function getInvoiceBatches(): Promise<InvoiceBatchSummary[]> {
+  return request("/api/invoice-batches");
+}
+
+export function getInvoiceBatch(id: number): Promise<InvoiceBatchDetail> {
+  return request(`/api/invoice-batches/${id}`);
+}
+
+export function createInvoiceBatch(input: {
+  invoiceIds: number[];
+  firmId: number;
+  invoiceDate: string;
+}): Promise<InvoiceBatchDetail> {
+  return request("/api/invoice-batches", { method: "POST", body: JSON.stringify(input) });
 }

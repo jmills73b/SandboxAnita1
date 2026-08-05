@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { logout } from "./api";
 import { Dashboard, type DashboardTile } from "./Dashboard";
+import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
 import { Brand } from "./Brand";
@@ -31,6 +32,7 @@ export function SignedInApp({
       {screen.kind === "hub" && <Dashboard onSelect={(tile) => setScreen({ kind: tile })} />}
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
+      {screen.kind === "invoice-generator" && <InvoiceGeneratorPage onBack={goHome} />}
     </main>
   );
 }

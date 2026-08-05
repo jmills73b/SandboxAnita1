@@ -16,6 +16,8 @@ interface InvoiceRow {
   anita_income: number;
   status: string;
   reference: string | null;
+  matter: string | null;
+  batch_id: number | null;
   date_settled_client: string | null;
   date_settled_firm: string | null;
 }
@@ -30,6 +32,8 @@ function toInvoice(row: InvoiceRow) {
     anitaIncome: row.anita_income,
     status: row.status,
     reference: row.reference,
+    matter: row.matter,
+    batchId: row.batch_id,
     dateSettledClient: row.date_settled_client,
     dateSettledFirm: row.date_settled_firm,
     lagDays: lagDays(row.invoice_date, row.date_settled_firm),
@@ -52,7 +56,7 @@ invoices.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT invoices.id, invoices.invoice_date, invoices.client_id, clients.name AS client_name,
             invoices.total_amount, invoices.anita_income, invoices.status, invoices.reference,
-            invoices.date_settled_client, invoices.date_settled_firm
+            invoices.matter, invoices.batch_id, invoices.date_settled_client, invoices.date_settled_firm
      FROM invoices
      JOIN clients ON clients.id = invoices.client_id
      ORDER BY invoices.invoice_date DESC, invoices.id DESC`,
@@ -67,8 +71,9 @@ invoices.post("/", async (c) => {
     clientId?: number;
     totalAmount?: number;
     reference?: string;
+    matter?: string;
   }>();
-  const { invoiceDate, clientId, totalAmount, reference } = body;
+  const { invoiceDate, clientId, totalAmount, reference, matter } = body;
 
   if (!invoiceDate || !clientId || totalAmount === undefined) {
     return c.json({ error: "A date, client and amount are required" }, 400);
@@ -88,12 +93,12 @@ invoices.post("/", async (c) => {
   const anitaIncome = calculateAnitaIncome(totalAmount);
 
   const created = await c.env.DB.prepare(
-    `INSERT INTO invoices (client_id, firm_id, invoice_date, total_amount, anita_income, reference)
-     VALUES (?, ?, ?, ?, ?, ?)
+    `INSERT INTO invoices (client_id, firm_id, invoice_date, total_amount, anita_income, reference, matter)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      RETURNING id, invoice_date, client_id, total_amount, anita_income, status, reference,
-               date_settled_client, date_settled_firm`,
+               matter, batch_id, date_settled_client, date_settled_firm`,
   )
-    .bind(clientId, firm?.id ?? null, invoiceDate, totalAmount, anitaIncome, reference ?? null)
+    .bind(clientId, firm?.id ?? null, invoiceDate, totalAmount, anitaIncome, reference ?? null, matter ?? null)
     .first<Omit<InvoiceRow, "client_name">>();
 
   if (!created) {
@@ -115,7 +120,7 @@ invoices.patch("/:id", async (c) => {
 
   const existing = await c.env.DB.prepare(
     `SELECT id, invoice_date, client_id, total_amount, anita_income, status, reference,
-            date_settled_client, date_settled_firm
+            matter, batch_id, date_settled_client, date_settled_firm
      FROM invoices WHERE id = ?`,
   )
     .bind(id)
@@ -130,6 +135,7 @@ invoices.patch("/:id", async (c) => {
     clientId?: number;
     totalAmount?: number;
     reference?: string | null;
+    matter?: string | null;
     status?: string;
     dateSettledClient?: string | null;
     dateSettledFirm?: string | null;
@@ -146,6 +152,7 @@ invoices.patch("/:id", async (c) => {
   const clientId = body.clientId ?? existing.client_id;
   const totalAmount = body.totalAmount ?? existing.total_amount;
   const reference = body.reference !== undefined ? body.reference : existing.reference;
+  const matter = body.matter !== undefined ? body.matter : existing.matter;
   const status = body.status ?? existing.status;
   const anitaIncome = body.totalAmount !== undefined ? calculateAnitaIncome(totalAmount) : existing.anita_income;
 
@@ -167,13 +174,24 @@ invoices.patch("/:id", async (c) => {
 
   const updated = await c.env.DB.prepare(
     `UPDATE invoices
-     SET client_id = ?, invoice_date = ?, total_amount = ?, anita_income = ?, reference = ?,
+     SET client_id = ?, invoice_date = ?, total_amount = ?, anita_income = ?, reference = ?, matter = ?,
          status = ?, date_settled_client = ?, date_settled_firm = ?
      WHERE id = ?
      RETURNING id, invoice_date, client_id, total_amount, anita_income, status, reference,
-               date_settled_client, date_settled_firm`,
+               matter, batch_id, date_settled_client, date_settled_firm`,
   )
-    .bind(clientId, invoiceDate, totalAmount, anitaIncome, reference, status, dateSettledClient, dateSettledFirm, id)
+    .bind(
+      clientId,
+      invoiceDate,
+      totalAmount,
+      anitaIncome,
+      reference,
+      matter,
+      status,
+      dateSettledClient,
+      dateSettledFirm,
+      id,
+    )
     .first<Omit<InvoiceRow, "client_name">>();
 
   if (!updated) {
