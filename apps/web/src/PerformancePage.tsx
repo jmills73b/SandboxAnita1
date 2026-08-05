@@ -52,13 +52,20 @@ function taxYearMonthKeys(startYear: number, truncateToCurrentMonth: boolean): s
   return idx >= 0 ? keys.slice(0, idx + 1) : keys;
 }
 
-// Money actually landing with Anita (dateSettledFirm), not the invoice
-// date or when the client paid — see the "which paid date" discussion.
-function incomeByMonth(invoices: Invoice[]): Map<string, number> {
+type PerformanceMode = "paid" | "all";
+
+// "paid" mode: money actually landing with Anita (dateSettledFirm) — the
+// strict view, matching what's really in the bank. "all" mode includes
+// every invoice, falling back through whichever date is known: paid to
+// Anita, else paid to Newmans, else the invoice date itself — so work
+// still shows up before it's fully settled.
+function incomeByMonth(invoices: Invoice[], mode: PerformanceMode): Map<string, number> {
   const totals = new Map<string, number>();
   for (const invoice of invoices) {
-    if (!invoice.dateSettledFirm) continue;
-    const key = taxMonthKey(invoice.dateSettledFirm);
+    const effectiveDate =
+      mode === "paid" ? invoice.dateSettledFirm : (invoice.dateSettledFirm ?? invoice.dateSettledClient ?? invoice.invoiceDate);
+    if (!effectiveDate) continue;
+    const key = taxMonthKey(effectiveDate);
     totals.set(key, (totals.get(key) ?? 0) + invoice.anitaIncome);
   }
   return totals;
@@ -87,6 +94,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [settings, setSettings] = useState<TaxYearSettings | null>(null);
   const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
+  const [mode, setMode] = useState<PerformanceMode>("paid");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editingTarget, setEditingTarget] = useState(false);
@@ -157,7 +165,22 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
             </option>
           ))}
         </select>
+
+        <div className="mode-toggle" role="group" aria-label="Show">
+          <button type="button" className={mode === "paid" ? "active" : ""} onClick={() => setMode("paid")}>
+            Money paid
+          </button>
+          <button type="button" className={mode === "all" ? "active" : ""} onClick={() => setMode("all")}>
+            All invoices
+          </button>
+        </div>
       </div>
+
+      <p className="mode-caption">
+        {mode === "paid"
+          ? "Only invoices paid to Anita, by the date they landed."
+          : "Every invoice, using the date paid to Anita, else paid to Newmans, else the invoice date."}
+      </p>
 
       {error && (
         <p className="error" role="alert">
@@ -199,6 +222,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
           target={settings.monthlyTarget}
           startYear={selectedStartYear}
           taxYear={settings.taxYear}
+          mode={mode}
           onEditTarget={() => {
             setTargetInput(String(settings.monthlyTarget));
             setEditingTarget(true);
@@ -220,17 +244,20 @@ function PerformanceSummary({
   target,
   startYear,
   taxYear,
+  mode,
   onEditTarget,
 }: {
   invoices: Invoice[];
   target: number;
   startYear: number;
   taxYear: string;
+  mode: PerformanceMode;
   onEditTarget: () => void;
 }) {
   const isCurrentYear = startYear === currentTaxYearStartYear();
-  const monthlyTotals = incomeByMonth(invoices);
+  const monthlyTotals = incomeByMonth(invoices, mode);
   const monthKeys = taxYearMonthKeys(startYear, isCurrentYear);
+  const amountColumnLabel = mode === "paid" ? "Received" : "Invoiced";
 
   const yearActual = monthKeys.reduce((sum, key) => sum + (monthlyTotals.get(key) ?? 0), 0);
   const yearTarget = target * monthKeys.length;
@@ -277,7 +304,7 @@ function PerformanceSummary({
           <thead>
             <tr>
               <th>Month</th>
-              <th>Received</th>
+              <th>{amountColumnLabel}</th>
               <th>Target</th>
               <th>Status</th>
             </tr>
