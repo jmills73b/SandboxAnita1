@@ -120,6 +120,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [clientMode, setClientMode] = useState<ClientMode>("existing");
   const [clientName, setClientName] = useState("");
   const [totalAmount, setTotalAmount] = useState("");
+  const [fileNo, setFileNo] = useState("");
+  const [matter, setMatter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -129,6 +131,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [editClientMode, setEditClientMode] = useState<ClientMode>("existing");
   const [editClientName, setEditClientName] = useState("");
   const [editAmount, setEditAmount] = useState("");
+  const [editFileNo, setEditFileNo] = useState("");
+  const [editMatter, setEditMatter] = useState("");
   const [editSettledClient, setEditSettledClient] = useState("");
   const [editSettledFirm, setEditSettledFirm] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
@@ -176,10 +180,18 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
       const existing = clients.find((c) => c.name.toLowerCase() === trimmedName.toLowerCase());
       const clientId = existing ? existing.id : (await addClient(trimmedName)).id;
 
-      await addInvoice({ invoiceDate, clientId, totalAmount: amount });
+      await addInvoice({
+        invoiceDate,
+        clientId,
+        totalAmount: amount,
+        reference: fileNo.trim() || undefined,
+        matter: matter.trim() || undefined,
+      });
 
       setClientName("");
       setTotalAmount("");
+      setFileNo("");
+      setMatter("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that invoice");
@@ -203,6 +215,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     setEditClientMode("existing");
     setEditClientName(invoice.clientName);
     setEditAmount(String(invoice.totalAmount));
+    setEditFileNo(invoice.reference ?? "");
+    setEditMatter(invoice.matter ?? "");
     setEditSettledClient(invoice.dateSettledClient ?? "");
     setEditSettledFirm(invoice.dateSettledFirm ?? "");
     setEditError(null);
@@ -237,6 +251,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         invoiceDate: editDate,
         clientId,
         totalAmount: amount,
+        reference: editFileNo.trim() || null,
+        matter: editMatter.trim() || null,
         dateSettledClient: editSettledClient || null,
         dateSettledFirm: editSettledFirm || null,
       });
@@ -306,6 +322,24 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
           fieldId="invoice-client"
           autoFocus
         />
+        <label className="sr-only" htmlFor="invoice-file-no">
+          File no.
+        </label>
+        <input
+          id="invoice-file-no"
+          value={fileNo}
+          onChange={(event) => setFileNo(event.target.value)}
+          placeholder="File no. (optional)"
+        />
+        <label className="sr-only" htmlFor="invoice-matter">
+          Matter
+        </label>
+        <input
+          id="invoice-matter"
+          value={matter}
+          onChange={(event) => setMatter(event.target.value)}
+          placeholder="Matter (optional)"
+        />
         <label className="sr-only" htmlFor="invoice-amount">
           Amount
         </label>
@@ -366,6 +400,22 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
                 className="input-compact"
                 value={editAmount}
                 onChange={(event) => setEditAmount(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>File no.</span>
+              <input
+                className="input-compact"
+                value={editFileNo}
+                onChange={(event) => setEditFileNo(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Matter</span>
+              <input
+                className="input-compact"
+                value={editMatter}
+                onChange={(event) => setEditMatter(event.target.value)}
               />
             </label>
             <label className="edit-field">

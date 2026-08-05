@@ -46,7 +46,7 @@ function fakeEnv(
               return (firmId === null ? null : { id: firmId }) as T;
             }
             if (sql.includes("INSERT INTO invoices")) {
-              const [clientId, , invoiceDate, totalAmount, anitaIncome, reference] = boundArgs;
+              const [clientId, , invoiceDate, totalAmount, anitaIncome, reference, matter] = boundArgs;
               return {
                 id: 1,
                 client_id: clientId,
@@ -55,6 +55,8 @@ function fakeEnv(
                 anita_income: anitaIncome,
                 status: "In progress",
                 reference: reference ?? null,
+                matter: matter ?? null,
+                batch_id: null,
                 date_settled_client: null,
                 date_settled_firm: null,
               } as T;
@@ -69,6 +71,7 @@ function fakeEnv(
                 totalAmount,
                 anitaIncome,
                 reference,
+                matter,
                 status,
                 dateSettledClient,
                 dateSettledFirm,
@@ -81,6 +84,8 @@ function fakeEnv(
                 total_amount: totalAmount,
                 anita_income: anitaIncome,
                 reference,
+                matter,
+                batch_id: null,
                 status,
                 date_settled_client: dateSettledClient,
                 date_settled_firm: dateSettledFirm,
@@ -236,6 +241,8 @@ const EXISTING_INVOICE = {
   anita_income: 750,
   status: "In progress",
   reference: null,
+  matter: null,
+  batch_id: null,
   date_settled_client: null,
   date_settled_firm: null,
 };

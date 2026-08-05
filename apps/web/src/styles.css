@@ -479,6 +479,18 @@ button.client-link:hover {
   color: var(--ink-soft);
 }
 
+.settings-section-title {
+  margin: 18px 0 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+}
+
+.settings-section-title:first-of-type {
+  margin-top: 0;
+}
+
 .edit-row {
   display: flex;
   flex-wrap: wrap;
@@ -579,6 +591,55 @@ button.secondary {
   font-weight: 600;
   font-size: 1.6rem;
   margin: 0;
+}
+
+.section-heading {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 1.2rem;
+  margin: 32px 0 14px;
+}
+
+.section-heading:first-of-type {
+  margin-top: 24px;
+}
+
+.checkbox-cell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.checkbox-cell input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+.totals-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--paper-raised);
+}
+
+.totals-bar-figures {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.totals-bar-figures strong {
+  color: var(--ink);
+}
+
+.totals-bar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 .performance-heading {
