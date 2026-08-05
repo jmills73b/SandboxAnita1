@@ -21,7 +21,7 @@ const TILES = [
     key: "expenses",
     name: "Expenses",
     desc: "Log and categorise business expenses.",
-    active: false,
+    active: true,
   },
   {
     key: "tax",

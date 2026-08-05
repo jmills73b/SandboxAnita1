@@ -215,3 +215,35 @@ export function createInvoiceBatch(input: {
 }): Promise<InvoiceBatchDetail> {
   return request("/api/invoice-batches", { method: "POST", body: JSON.stringify(input) });
 }
+
+export interface Expense {
+  id: number;
+  date: string;
+  description: string;
+  cost: number;
+  category: string | null;
+}
+
+export function getExpenses(): Promise<Expense[]> {
+  return request("/api/expenses");
+}
+
+export function addExpense(input: {
+  date: string;
+  description: string;
+  cost: number;
+  category?: string | null;
+}): Promise<Expense> {
+  return request("/api/expenses", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateExpense(
+  id: number,
+  patch: Partial<{ date: string; description: string; cost: number; category: string | null }>,
+): Promise<Expense> {
+  return request(`/api/expenses/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function deleteExpense(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/expenses/${id}`, { method: "DELETE" });
+}
