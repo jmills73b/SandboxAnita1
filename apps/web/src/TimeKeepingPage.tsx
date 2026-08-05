@@ -100,7 +100,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   async function resolveClientId(name: string): Promise<number> {
     const trimmed = name.trim();
     const existing = clients.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
-    return existing ? existing.id : (await addClient(trimmed)).id;
+    return existing ? existing.id : (await addClient({ name: trimmed })).id;
   }
 
   async function handleSubmit(event: FormEvent) {

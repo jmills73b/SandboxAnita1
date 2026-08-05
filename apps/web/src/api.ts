@@ -3,10 +3,18 @@
 // same-origin defaults won't do that.
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
+export interface ClientCategory {
+  id: number;
+  name: string;
+}
+
 export interface Client {
   id: number;
   name: string;
+  email: string | null;
+  summary: string | null;
   first_invoice_date: string | null;
+  categories: ClientCategory[];
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -52,8 +60,36 @@ export function getClients(): Promise<Client[]> {
   return request("/api/clients");
 }
 
-export function addClient(name: string): Promise<Client> {
-  return request("/api/clients", { method: "POST", body: JSON.stringify({ name }) });
+export function addClient(input: {
+  name: string;
+  email?: string | null;
+  summary?: string | null;
+  categoryIds?: number[];
+}): Promise<Client> {
+  return request("/api/clients", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateClient(
+  id: number,
+  patch: Partial<{ name: string; email: string | null; summary: string | null; categoryIds: number[] }>,
+): Promise<Client> {
+  return request(`/api/clients/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function getClientCategories(): Promise<ClientCategory[]> {
+  return request("/api/client-categories");
+}
+
+export function addClientCategory(name: string): Promise<ClientCategory> {
+  return request("/api/client-categories", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function renameClientCategory(id: number, name: string): Promise<ClientCategory> {
+  return request(`/api/client-categories/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+export function deleteClientCategory(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/client-categories/${id}`, { method: "DELETE" });
 }
 
 export interface Invoice {

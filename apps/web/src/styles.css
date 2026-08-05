@@ -243,6 +243,30 @@ button.brand {
   color: var(--paper);
 }
 
+/* Unlike .mode-toggle (exactly one of a joined segmented control), chips
+   are independent toggles — any number can be active at once, so each
+   keeps its own border/gap rather than sharing edges. */
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--paper-raised);
+  color: var(--ink-soft);
+}
+
+.chip.active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
 .client-picker {
   display: flex;
   flex-direction: column;

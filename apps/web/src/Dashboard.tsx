@@ -1,5 +1,11 @@
 const TILES = [
   {
+    key: "clients",
+    name: "Clients",
+    desc: "Maintain the client list, with contact details and categories.",
+    active: true,
+  },
+  {
     key: "time",
     name: "Time Keeping",
     desc: "Log chargeable time against a client, in configurable billing units.",
