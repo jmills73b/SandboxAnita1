@@ -82,6 +82,25 @@ body {
   padding: 24px 20px 60px;
 }
 
+/* Tablet landscape and up (iPad landscape lands here) — the 720px cap
+   was sized for a phone and left most of a wider screen empty, forcing
+   things like the invoice ledger into a horizontal scroll it didn't
+   need. .page-narrow (the auth screens) stays untouched at every size —
+   that's meant to stay a tight single column regardless of how much
+   room is available. */
+@media (min-width: 900px) {
+  .page {
+    max-width: 1100px;
+  }
+}
+
+/* Laptop and up */
+@media (min-width: 1300px) {
+  .page {
+    max-width: 1400px;
+  }
+}
+
 .page-narrow {
   max-width: 360px;
   padding-top: 15vh;
@@ -948,10 +967,12 @@ button.secondary {
   margin: 10px 0 0;
 }
 
-/* Dashboard hub */
+/* Dashboard hub — auto-fit rather than a fixed 2 columns, so wider
+   screens (where .page itself now grows, see above) reflow into 3-4
+   narrower tiles instead of just stretching two of them very wide. */
 .hero-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 14px;
 }
 
