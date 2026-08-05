@@ -12,7 +12,10 @@ import {
 } from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
-const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+// invoiceDate is a plain "YYYY-MM-DD" — `new Date(...)` parses that as UTC
+// midnight, so formatting without pinning the zone rolls it back a day
+// for any viewer west of UTC (e.g. Dominican Republic, UTC-4).
+const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);

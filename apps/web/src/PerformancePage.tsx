@@ -3,8 +3,12 @@ import { currentTaxYearStartYear, recentTaxYearStartYears, taxMonthKey, taxYearL
 import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
-const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric" });
-const monthAbbrevFmt = new Intl.DateTimeFormat("en-GB", { month: "short" });
+// Every date here is built as UTC midnight (Date.UTC(...)) and represents
+// a whole month, not a moment — formatting it in the viewer's local time
+// zone would roll it back a day (and so a whole displayed month) for
+// anyone west of UTC, exactly like the invoice date bug in InvoicesPage.
+const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+const monthAbbrevFmt = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" });
 
 const YEAR_OPTIONS = 6;
 
