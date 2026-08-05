@@ -6,6 +6,7 @@ import { InviteCodePanel } from "./InviteCodePanel";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
+import { TaxPage } from "./TaxPage";
 import { Brand } from "./Brand";
 
 type Screen = { kind: "hub" } | { kind: DashboardTile };
@@ -41,6 +42,7 @@ export function SignedInApp({
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
       {screen.kind === "invoice-generator" && <InvoiceGeneratorPage onBack={goHome} />}
       {screen.kind === "expenses" && <ExpensesPage onBack={goHome} />}
+      {screen.kind === "tax" && <TaxPage onBack={goHome} />}
     </main>
   );
 }

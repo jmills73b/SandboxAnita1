@@ -106,12 +106,28 @@ export function deleteInvoice(id: number): Promise<{ ok: boolean }> {
   return request(`/api/invoices/${id}`, { method: "DELETE" });
 }
 
+export interface TaxRates {
+  personalAllowance: number | null;
+  basicRate: number | null;
+  basicRateThreshold: number | null;
+  higherRate: number | null;
+  higherRateThreshold: number | null;
+  additionalRate: number | null;
+  niLowerThreshold: number | null;
+  niUpperThreshold: number | null;
+  niLowerRate: number | null;
+  niUpperRate: number | null;
+  class2FlatRate: number | null;
+}
+
 export interface TaxYearSettings {
   startYear: number;
   taxYear: string;
   startDate: string;
   monthlyTarget: number | null;
   splitPercentage: number | null;
+  rates: TaxRates;
+  ratesConfirmedAt: string | null;
 }
 
 export function getTaxYearSettings(startYear: number): Promise<TaxYearSettings> {
@@ -122,6 +138,13 @@ export function setTaxYearTarget(startYear: number, monthlyTarget: number): Prom
   return request(`/api/tax-year-settings/${startYear}`, {
     method: "POST",
     body: JSON.stringify({ monthlyTarget }),
+  });
+}
+
+export function setTaxYearRates(startYear: number, rates: Record<keyof TaxRates, number>): Promise<TaxYearSettings> {
+  return request(`/api/tax-year-settings/${startYear}/rates`, {
+    method: "PUT",
+    body: JSON.stringify(rates),
   });
 }
 

@@ -27,7 +27,7 @@ const TILES = [
     key: "tax",
     name: "Tax & NI Estimate",
     desc: "Estimate this year's income tax and National Insurance.",
-    active: false,
+    active: true,
   },
 ] as const;
 
