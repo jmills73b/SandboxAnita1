@@ -11,6 +11,16 @@ function dueClass(task: Task, today: string): string {
   return "";
 }
 
+// "14:00" -> "2:00 PM". There's no notification delivery in this app —
+// nothing fires at this time — so it's purely a label alongside the date.
+function formatTime(time: string): string {
+  const [hoursStr, minutes] = time.split(":");
+  const hours = Number(hoursStr);
+  const period = hours >= 12 ? "PM" : "AM";
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelveHour}:${minutes} ${period}`;
+}
+
 export function TaskSummaryPanel({ onClose }: { onClose: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,7 +81,9 @@ export function TaskSummaryPanel({ onClose }: { onClose: () => void }) {
             <div className="note-card task-card" key={task.id}>
               <div className="note-card-body">
                 <div className="note-card-meta">
-                  <span className={`task-due-date ${dueClass(task, today)}`}>{task.nextDueDate}</span>
+                  <span className={`task-due-date ${dueClass(task, today)}`}>
+                    {task.nextDueDate} · {formatTime(task.dueTime)}
+                  </span>
                   <span className="task-title">{task.title}</span>
                   {task.clientName && <span className="chip">{task.clientName}</span>}
                 </div>
