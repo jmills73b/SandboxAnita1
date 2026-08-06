@@ -16,6 +16,8 @@ const TABLES = [
   "client_notes",
   "client_note_versions",
   "note_categories",
+  "tasks",
+  "task_occurrences",
   "intermediary_firms",
   "invoices",
   "invoice_batches",

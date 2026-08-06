@@ -1215,6 +1215,51 @@ button.secondary {
   font-style: italic;
 }
 
+/* Task management / reminders */
+.task-badge-button {
+  position: relative;
+}
+
+.task-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 20px;
+  background: var(--error);
+  color: var(--paper);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+
+.task-card.task-paused {
+  opacity: 0.6;
+}
+
+.task-title {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.task-due-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.task-due-date.due-today {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.task-due-date.overdue {
+  color: var(--error);
+  font-weight: 600;
+}
+
 @media (max-width: 420px) {
   .page {
     padding: 16px 14px 40px;
