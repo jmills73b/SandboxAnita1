@@ -53,6 +53,26 @@ jobs:
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
+      # Reuses the same deploy credentials already used above, rather than
+      # asking for a new secret — the Usage panel just needs the Worker's
+      # own copy of them to call Cloudflare's Analytics API at runtime.
+      # Note: the deploy token needs Account Analytics: Read added to it in
+      # the Cloudflare dashboard for the panel to actually return data; the
+      # panel reports itself as unconfigured/errors clearly if that's missing
+      # rather than failing the whole app.
+      - name: Set Cloudflare usage tracking secrets
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          secrets: |
+            CF_API_TOKEN
+            CF_ACCOUNT_ID
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
         with:

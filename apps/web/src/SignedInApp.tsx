@@ -9,6 +9,7 @@ import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
 import { TaxPage } from "./TaxPage";
 import { TimeKeepingPage } from "./TimeKeepingPage";
+import { UsagePanel } from "./UsagePanel";
 import { Brand } from "./Brand";
 
 type Screen = { kind: "hub" } | { kind: DashboardTile };
@@ -22,6 +23,7 @@ export function SignedInApp({
 }) {
   const [screen, setScreen] = useState<Screen>({ kind: "hub" });
   const [showInviteCode, setShowInviteCode] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const goHome = () => setScreen({ kind: "hub" });
@@ -62,6 +64,9 @@ export function SignedInApp({
           <button type="button" className="secondary" onClick={() => setShowInviteCode((prev) => !prev)}>
             Invite code
           </button>
+          <button type="button" className="secondary" onClick={() => setShowUsage((prev) => !prev)}>
+            Usage
+          </button>
           <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
             Sign out
           </button>
@@ -73,6 +78,7 @@ export function SignedInApp({
         </p>
       )}
       {showInviteCode && <InviteCodePanel onClose={() => setShowInviteCode(false)} />}
+      {showUsage && <UsagePanel onClose={() => setShowUsage(false)} />}
       {screen.kind === "hub" && <Dashboard onSelect={(tile) => setScreen({ kind: tile })} />}
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
