@@ -1,21 +1,33 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
+  actOnTask,
   addClientNote,
   addClientNoteVersion,
   addNoteCategory,
+  addTask,
   deleteNoteCategory,
   getClientNote,
   getClientNotes,
   getNoteCategories,
+  getTasks,
   renameNoteCategory,
   type ClientNoteSummary,
   type NoteCategory,
   type NoteVersion,
+  type Task,
+  type TaskAction,
 } from "./api";
 import { applyBold, applyBulletList, applyNumberedList, renderMarkdown, type TextSelection } from "./markdown";
+import { FollowUpPicker } from "./FollowUpPicker";
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function dueClass(task: Task, today: string): string {
+  if (task.nextDueDate < today) return "overdue";
+  if (task.nextDueDate === today) return "due-today";
+  return "";
 }
 
 function truncate(text: string, max: number): string {
@@ -147,6 +159,7 @@ export function ClientNotesPanel({
 }) {
   const [notes, setNotes] = useState<ClientNoteSummary[]>([]);
   const [categories, setCategories] = useState<NoteCategory[]>([]);
+  const [followUps, setFollowUps] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
@@ -167,12 +180,25 @@ export function ClientNotesPanel({
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  const [showNewFollowUp, setShowNewFollowUp] = useState(false);
+  const [followUpForNoteId, setFollowUpForNoteId] = useState<number | null>(null);
+  const [followUpActingId, setFollowUpActingId] = useState<number | null>(null);
+
   async function refresh() {
     setLoading(true);
     try {
-      const [noteList, categoryList] = await Promise.all([getClientNotes(), getNoteCategories()]);
+      const [noteList, categoryList, taskList] = await Promise.all([
+        getClientNotes(),
+        getNoteCategories(),
+        getTasks(),
+      ]);
       setNotes(noteList.filter((n) => n.clientId === clientId));
       setCategories(categoryList);
+      setFollowUps(
+        taskList
+          .filter((t) => t.clientId === clientId && !t.paused)
+          .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate)),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load notes");
     } finally {
@@ -215,6 +241,26 @@ export function ClientNotesPanel({
     }
     setExpandedId(note.id);
     setEditingId(null);
+  }
+
+  async function saveFollowUp(input: { title: string; dueDate: string }) {
+    await addTask({ title: input.title, frequency: "once", nextDueDate: input.dueDate, clientId });
+    setShowNewFollowUp(false);
+    setFollowUpForNoteId(null);
+    await refresh();
+  }
+
+  async function handleFollowUpAction(id: number, action: TaskAction) {
+    setFollowUpActingId(id);
+    setError(null);
+    try {
+      await actOnTask(id, action);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that follow-up");
+    } finally {
+      setFollowUpActingId(null);
+    }
   }
 
   async function loadHistory(noteId: number) {
@@ -279,6 +325,46 @@ export function ClientNotesPanel({
         </button>
       </div>
 
+      {followUps.length > 0 && (
+        <div className="note-list">
+          {followUps.map((task) => (
+            <div className="note-card task-card" key={task.id}>
+              <div className="note-card-body">
+                <div className="note-card-meta">
+                  <span className={`task-due-date ${dueClass(task, todayISO())}`}>{task.nextDueDate}</span>
+                  <span className="task-title">{task.title}</span>
+                </div>
+                <div className="row-actions">
+                  <button
+                    type="button"
+                    onClick={() => handleFollowUpAction(task.id, "completed")}
+                    disabled={followUpActingId === task.id}
+                  >
+                    Done
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleFollowUpAction(task.id, "skipped")}
+                    disabled={followUpActingId === task.id}
+                  >
+                    Skip
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleFollowUpAction(task.id, "not_needed")}
+                    disabled={followUpActingId === task.id}
+                  >
+                    Not needed
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="form">
         <NoteEditor
           categories={categories}
@@ -296,8 +382,18 @@ export function ClientNotesPanel({
           <button type="button" className="secondary" onClick={() => setShowCategoryManager((prev) => !prev)}>
             {showCategoryManager ? "Hide categories" : "Manage categories"}
           </button>
+          <button type="button" className="secondary" onClick={() => setShowNewFollowUp((prev) => !prev)}>
+            {showNewFollowUp ? "Hide follow-up" : "+ Set a follow-up"}
+          </button>
         </div>
       </form>
+      {showNewFollowUp && (
+        <FollowUpPicker
+          defaultTitle={`Follow up with ${clientName}`}
+          onSave={saveFollowUp}
+          onCancel={() => setShowNewFollowUp(false)}
+        />
+      )}
 
       {error && (
         <p className="error" role="alert">
@@ -370,7 +466,21 @@ export function ClientNotesPanel({
                               ? `History (${note.versionCount})`
                               : `Show history (${note.versionCount})`}
                         </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setFollowUpForNoteId((prev) => (prev === note.id ? null : note.id))}
+                        >
+                          {followUpForNoteId === note.id ? "Hide follow-up" : "Set follow-up"}
+                        </button>
                       </div>
+                      {followUpForNoteId === note.id && (
+                        <FollowUpPicker
+                          defaultTitle={`Follow up with ${clientName}`}
+                          onSave={saveFollowUp}
+                          onCancel={() => setFollowUpForNoteId(null)}
+                        />
+                      )}
                       {historyByNote[note.id] && (
                         <div className="note-history">
                           {(historyByNote[note.id] ?? []).map((version, index) => (

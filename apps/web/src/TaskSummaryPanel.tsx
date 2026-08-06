@@ -73,6 +73,7 @@ export function TaskSummaryPanel({ onClose }: { onClose: () => void }) {
                 <div className="note-card-meta">
                   <span className={`task-due-date ${dueClass(task, today)}`}>{task.nextDueDate}</span>
                   <span className="task-title">{task.title}</span>
+                  {task.clientName && <span className="chip">{task.clientName}</span>}
                 </div>
                 {task.description && <p className="note-card-preview">{task.description}</p>}
                 <div className="row-actions">

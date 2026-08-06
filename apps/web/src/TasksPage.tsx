@@ -325,6 +325,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                   <span className={`task-due-date ${dueClass(task, today)}`}>{task.nextDueDate}</span>
                   <span className="task-title">{task.title}</span>
                   <span className="chip">{frequencyLabel(task.frequency)}</span>
+                  {task.clientName && <span className="chip">{task.clientName}</span>}
                   {task.paused && <span className="note-edited-badge">Paused</span>}
                 </div>
                 {expandedId !== task.id && task.description && (
