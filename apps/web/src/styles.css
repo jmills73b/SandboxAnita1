@@ -25,6 +25,7 @@
   --line: #e1dbd1;
   --line-strong: #bfb6a9;
   --error: #7e2e22;
+  --warn: #96631c;
 
   --display: "Fraunces", Georgia, "Iowan Old Style", serif;
   --sans:
@@ -43,6 +44,7 @@
     --line: #332d26;
     --line-strong: #4a4238;
     --error: #c97a6c;
+    --warn: #d4a24e;
   }
 }
 :root[data-theme="dark"] {
@@ -54,6 +56,7 @@
   --line: #332d26;
   --line-strong: #4a4238;
   --error: #c97a6c;
+  --warn: #d4a24e;
 }
 :root[data-theme="light"] {
   --ink: #1c1815;
@@ -64,6 +67,7 @@
   --line: #e1dbd1;
   --line-strong: #bfb6a9;
   --error: #7e2e22;
+  --warn: #96631c;
 }
 
 * {
@@ -841,6 +845,14 @@ button.secondary {
   height: 100%;
   background: var(--ink);
   border-radius: 3px;
+}
+
+.progress-bar-fill.warn {
+  background: var(--warn);
+}
+
+.progress-bar-fill.critical {
+  background: var(--error);
 }
 
 .stat-group-pct {

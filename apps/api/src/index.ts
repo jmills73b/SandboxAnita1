@@ -16,10 +16,15 @@ import taxYearSettings from "./routes/taxYearSettings";
 import timeCategories from "./routes/timeCategories";
 import timeEntries from "./routes/timeEntries";
 import timeSettings from "./routes/timeSettings";
+import usage from "./routes/usage";
 
 export interface Env {
   DB: D1Database;
   SESSION_SECRET: string;
+  // Both optional: unset in local dev, where usage tracking just reports
+  // itself as not configured rather than failing the whole app.
+  CF_API_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
 }
 
 export type AppEnv = { Bindings: Env; Variables: { userId: number } };
@@ -55,5 +60,6 @@ app.route("/api/tax-year-settings", taxYearSettings);
 app.route("/api/time-categories", timeCategories);
 app.route("/api/time-entries", timeEntries);
 app.route("/api/time-settings", timeSettings);
+app.route("/api/usage", usage);
 
 export default app;

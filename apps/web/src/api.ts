@@ -454,3 +454,19 @@ export interface ExportData {
 export function exportAllData(): Promise<ExportData> {
   return request("/api/export");
 }
+
+export interface UsageMetric {
+  used: number;
+  cap: number;
+}
+
+export interface UsageStats {
+  workersRequests: UsageMetric;
+  d1RowsRead: UsageMetric;
+  d1RowsWritten: UsageMetric;
+  d1Storage: UsageMetric;
+}
+
+export function getUsage(): Promise<UsageStats> {
+  return request("/api/usage");
+}
