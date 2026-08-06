@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { exportAllData, logout } from "./api";
+import { useEffect, useState } from "react";
+import { exportAllData, getTasks, logout } from "./api";
 import { ClientsPage } from "./ClientsPage";
 import { Dashboard, type DashboardTile } from "./Dashboard";
 import { ExpensesPage } from "./ExpensesPage";
@@ -7,10 +7,16 @@ import { InviteCodePanel } from "./InviteCodePanel";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
+import { TaskSummaryPanel } from "./TaskSummaryPanel";
+import { TasksPage } from "./TasksPage";
 import { TaxPage } from "./TaxPage";
 import { TimeKeepingPage } from "./TimeKeepingPage";
 import { UsagePanel } from "./UsagePanel";
 import { Brand } from "./Brand";
+
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 type Screen = { kind: "hub" } | { kind: DashboardTile };
 
@@ -24,9 +30,26 @@ export function SignedInApp({
   const [screen, setScreen] = useState<Screen>({ kind: "hub" });
   const [showInviteCode, setShowInviteCode] = useState(false);
   const [showUsage, setShowUsage] = useState(false);
+  const [showTasks, setShowTasks] = useState(false);
+  const [dueTaskCount, setDueTaskCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const goHome = () => setScreen({ kind: "hub" });
+
+  async function refreshDueTaskCount() {
+    try {
+      const tasks = await getTasks();
+      const today = todayISO();
+      setDueTaskCount(tasks.filter((t) => !t.paused && t.nextDueDate <= today).length);
+    } catch {
+      // The header badge is a convenience, not critical — leave it as-is
+      // rather than surfacing an error banner over the whole app for it.
+    }
+  }
+
+  useEffect(() => {
+    refreshDueTaskCount();
+  }, [screen.kind]);
 
   // A plain file download, client-side, rather than anything stored on
   // the server — the same "generate and hand over a file" pattern already
@@ -67,6 +90,10 @@ export function SignedInApp({
           <button type="button" className="secondary" onClick={() => setShowUsage((prev) => !prev)}>
             Usage
           </button>
+          <button type="button" className="secondary task-badge-button" onClick={() => setShowTasks((prev) => !prev)}>
+            Tasks
+            {dueTaskCount > 0 && <span className="task-badge">{dueTaskCount}</span>}
+          </button>
           <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
             Sign out
           </button>
@@ -79,6 +106,14 @@ export function SignedInApp({
       )}
       {showInviteCode && <InviteCodePanel onClose={() => setShowInviteCode(false)} />}
       {showUsage && <UsagePanel onClose={() => setShowUsage(false)} />}
+      {showTasks && (
+        <TaskSummaryPanel
+          onClose={() => {
+            setShowTasks(false);
+            refreshDueTaskCount();
+          }}
+        />
+      )}
       {screen.kind === "hub" && <Dashboard onSelect={(tile) => setScreen({ kind: tile })} />}
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
@@ -87,6 +122,7 @@ export function SignedInApp({
       {screen.kind === "tax" && <TaxPage onBack={goHome} />}
       {screen.kind === "time" && <TimeKeepingPage onBack={goHome} />}
       {screen.kind === "clients" && <ClientsPage onBack={goHome} />}
+      {screen.kind === "tasks" && <TasksPage onBack={goHome} />}
     </main>
   );
 }

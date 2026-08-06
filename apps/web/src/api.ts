@@ -541,3 +541,61 @@ export function addClientNoteVersion(
 ): Promise<ClientNoteDetail> {
   return request(`/api/client-notes/${id}/versions`, { method: "POST", body: JSON.stringify(input) });
 }
+
+export type TaskFrequency = "once" | "weekly" | "monthly" | "quarterly" | "yearly";
+export type TaskAction = "completed" | "skipped" | "not_needed";
+
+export interface TaskOccurrence {
+  id: number;
+  dueDate: string;
+  action: TaskAction;
+  actedAt: string;
+}
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  frequency: TaskFrequency;
+  nextDueDate: string;
+  paused: boolean;
+  createdAt: string;
+}
+
+export interface TaskDetail extends Task {
+  occurrences: TaskOccurrence[];
+}
+
+export function getTasks(): Promise<Task[]> {
+  return request("/api/tasks");
+}
+
+export function getTask(id: number): Promise<TaskDetail> {
+  return request(`/api/tasks/${id}`);
+}
+
+export function addTask(input: {
+  title: string;
+  description?: string | null;
+  frequency: TaskFrequency;
+  nextDueDate: string;
+}): Promise<TaskDetail> {
+  return request("/api/tasks", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function updateTask(
+  id: number,
+  patch: Partial<{
+    title: string;
+    description: string | null;
+    frequency: TaskFrequency;
+    nextDueDate: string;
+    paused: boolean;
+  }>,
+): Promise<TaskDetail> {
+  return request(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+}
+
+export function actOnTask(id: number, action: TaskAction): Promise<TaskDetail> {
+  return request(`/api/tasks/${id}/actions`, { method: "POST", body: JSON.stringify({ action }) });
+}

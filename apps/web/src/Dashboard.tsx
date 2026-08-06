@@ -41,6 +41,12 @@ const TILES = [
     desc: "Estimate this year's income tax and National Insurance.",
     active: true,
   },
+  {
+    key: "tasks",
+    name: "Tasks & Reminders",
+    desc: "Track recurring and one-off things to do, with due dates and history.",
+    active: true,
+  },
 ] as const;
 
 export type DashboardTile = (typeof TILES)[number]["key"];

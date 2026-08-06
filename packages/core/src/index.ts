@@ -18,3 +18,5 @@ export {
 } from "./taxYear";
 export { calculateClass2NI, calculateClass4NI, calculateIncomeTax, calculateTaxAndNi } from "./tax";
 export type { TaxAndNiBreakdown, TaxRateSettings } from "./tax";
+export { isValidTaskFrequency, nextDueDate, TASK_FREQUENCIES } from "./taskRecurrence";
+export type { TaskFrequency } from "./taskRecurrence";
