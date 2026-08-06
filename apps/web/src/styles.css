@@ -1260,6 +1260,21 @@ button.secondary {
   font-weight: 600;
 }
 
+.follow-up-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 14px;
+  margin-top: 4px;
+  background: var(--paper);
+}
+
+.follow-up-picker .chip-group {
+  align-items: center;
+}
+
 @media (max-width: 420px) {
   .page {
     padding: 16px 14px 40px;

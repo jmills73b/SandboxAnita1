@@ -22,6 +22,8 @@ interface TaskRow {
   next_due_date: string;
   paused: number;
   created_at: string;
+  client_id: number | null;
+  client_name: string | null;
 }
 
 interface OccurrenceRow {
@@ -45,12 +47,19 @@ function toTask(row: TaskRow) {
     nextDueDate: row.next_due_date,
     paused: row.paused === 1,
     createdAt: row.created_at,
+    clientId: row.client_id,
+    clientName: row.client_name,
   };
 }
 
+const TASK_COLUMNS = `
+  tasks.id, tasks.title, tasks.description, tasks.frequency, tasks.next_due_date, tasks.paused,
+  tasks.created_at, tasks.client_id, clients.name AS client_name
+`;
+
 async function fetchTask(db: D1Database, id: number): Promise<TaskRow | null> {
   return db
-    .prepare("SELECT id, title, description, frequency, next_due_date, paused, created_at FROM tasks WHERE id = ?")
+    .prepare(`SELECT ${TASK_COLUMNS} FROM tasks LEFT JOIN clients ON clients.id = tasks.client_id WHERE tasks.id = ?`)
     .bind(id)
     .first<TaskRow>();
 }
@@ -67,7 +76,8 @@ async function fetchOccurrences(db: D1Database, taskId: number): Promise<Occurre
 
 tasks.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, title, description, frequency, next_due_date, paused, created_at FROM tasks ORDER BY paused, next_due_date, id",
+    `SELECT ${TASK_COLUMNS} FROM tasks LEFT JOIN clients ON clients.id = tasks.client_id
+     ORDER BY tasks.paused, tasks.next_due_date, tasks.id`,
   ).all<TaskRow>();
 
   return c.json(results.map(toTask));
@@ -94,6 +104,7 @@ tasks.post("/", async (c) => {
     description?: string | null;
     frequency?: string;
     nextDueDate?: string;
+    clientId?: number | null;
   }>();
 
   const title = body.title?.trim();
@@ -105,16 +116,17 @@ tasks.post("/", async (c) => {
   }
 
   const created = await c.env.DB.prepare(
-    "INSERT INTO tasks (title, description, frequency, next_due_date) VALUES (?, ?, ?, ?) RETURNING id, title, description, frequency, next_due_date, paused, created_at",
+    "INSERT INTO tasks (title, description, frequency, next_due_date, client_id) VALUES (?, ?, ?, ?, ?) RETURNING id",
   )
-    .bind(title, body.description?.trim() || null, body.frequency, body.nextDueDate)
-    .first<TaskRow>();
+    .bind(title, body.description?.trim() || null, body.frequency, body.nextDueDate, body.clientId ?? null)
+    .first<{ id: number }>();
 
   if (!created) {
     return c.json({ error: "Could not save the task" }, 500);
   }
 
-  return c.json({ ...toTask(created), occurrences: [] }, 201);
+  const task = await fetchTask(c.env.DB, created.id);
+  return c.json({ ...toTask(task!), occurrences: [] }, 201);
 });
 
 tasks.patch("/:id", async (c) => {
@@ -134,6 +146,7 @@ tasks.patch("/:id", async (c) => {
     frequency?: string;
     nextDueDate?: string;
     paused?: boolean;
+    clientId?: number | null;
   }>();
 
   const trimmedTitle = body.title?.trim();
@@ -149,11 +162,12 @@ tasks.patch("/:id", async (c) => {
   const frequency = body.frequency ?? existing.frequency;
   const nextDueDateValue = body.nextDueDate ?? existing.next_due_date;
   const paused = body.paused !== undefined ? (body.paused ? 1 : 0) : existing.paused;
+  const clientId = body.clientId !== undefined ? body.clientId : existing.client_id;
 
   await c.env.DB.prepare(
-    "UPDATE tasks SET title = ?, description = ?, frequency = ?, next_due_date = ?, paused = ? WHERE id = ?",
+    "UPDATE tasks SET title = ?, description = ?, frequency = ?, next_due_date = ?, paused = ?, client_id = ? WHERE id = ?",
   )
-    .bind(title, description, frequency, nextDueDateValue, paused, id)
+    .bind(title, description, frequency, nextDueDateValue, paused, clientId, id)
     .run();
 
   const updated = await fetchTask(c.env.DB, id);

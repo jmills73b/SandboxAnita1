@@ -17,6 +17,7 @@ interface StoredTask {
   next_due_date: string;
   paused: number;
   created_at: string;
+  client_id?: number | null;
 }
 
 interface StoredOccurrence {
@@ -31,12 +32,20 @@ function fakeEnv(
   options: {
     tasks?: StoredTask[];
     occurrences?: StoredOccurrence[];
+    clients?: Map<number, string>;
   } = {},
 ): Env {
-  const taskStore = new Map<number, StoredTask>((options.tasks ?? []).map((t) => [t.id, t]));
+  const taskStore = new Map<number, StoredTask>(
+    (options.tasks ?? []).map((t) => [t.id, { client_id: null, ...t }]),
+  );
   const occurrenceStore = new Map<number, StoredOccurrence>((options.occurrences ?? []).map((o) => [o.id, o]));
+  const clients = options.clients ?? new Map([[1, "Test Client"]]);
   let nextTaskId = Math.max(0, ...[...taskStore.keys()]) + 1;
   let nextOccurrenceId = Math.max(0, ...[...occurrenceStore.keys()]) + 1;
+
+  function withClientName(task: StoredTask) {
+    return { ...task, client_name: task.client_id != null ? (clients.get(task.client_id) ?? null) : null };
+  }
 
   return {
     SESSION_SECRET: SECRET,
@@ -50,11 +59,12 @@ function fakeEnv(
           },
           first: async <T,>() => {
             if (sql.includes("INSERT INTO tasks")) {
-              const [title, description, frequency, nextDueDateValue] = boundArgs as [
+              const [title, description, frequency, nextDueDateValue, clientId] = boundArgs as [
                 string,
                 string | null,
                 string,
                 string,
+                number | null,
               ];
               const id = nextTaskId++;
               const row: StoredTask = {
@@ -65,13 +75,15 @@ function fakeEnv(
                 next_due_date: nextDueDateValue,
                 paused: 0,
                 created_at: "2026-08-06T00:00:00Z",
+                client_id: clientId,
               };
               taskStore.set(id, row);
-              return row as T;
+              return { id } as T;
             }
-            if (sql.includes("FROM tasks WHERE id = ?")) {
+            if (sql.includes("WHERE tasks.id = ?")) {
               const [id] = boundArgs as [number];
-              return (taskStore.get(id) ?? null) as T;
+              const row = taskStore.get(id);
+              return (row ? withClientName(row) : null) as T;
             }
             return null;
           },
@@ -82,21 +94,22 @@ function fakeEnv(
               return { results: rows as T[], success: true, meta: {} };
             }
             if (sql.includes("FROM tasks")) {
-              const rows = [...taskStore.values()].sort(
-                (a, b) => a.paused - b.paused || a.next_due_date.localeCompare(b.next_due_date) || a.id - b.id,
-              );
+              const rows = [...taskStore.values()]
+                .sort((a, b) => a.paused - b.paused || a.next_due_date.localeCompare(b.next_due_date) || a.id - b.id)
+                .map(withClientName);
               return { results: rows as T[], success: true, meta: {} };
             }
             return { results: [] as T[], success: true, meta: {} };
           },
           run: async () => {
             if (sql.includes("UPDATE tasks SET title = ?")) {
-              const [title, description, frequency, nextDueDateValue, paused, id] = boundArgs as [
+              const [title, description, frequency, nextDueDateValue, paused, clientId, id] = boundArgs as [
                 string,
                 string | null,
                 string,
                 string,
                 number,
+                number | null,
                 number,
               ];
               const existing = taskStore.get(id);
@@ -108,6 +121,7 @@ function fakeEnv(
                   frequency,
                   next_due_date: nextDueDateValue,
                   paused,
+                  client_id: clientId,
                 });
               }
             } else if (sql.includes("INSERT INTO task_occurrences")) {
@@ -160,6 +174,25 @@ describe("GET /api/tasks", () => {
     ]);
     expect(body[0].nextDueDate).toBe("2026-08-10");
     expect(body[2].paused).toBe(true);
+  });
+
+  it("includes the linked client's name for a client-linked task, and nulls for an unlinked one", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      { headers: { Cookie: cookie } },
+      fakeEnv({
+        clients: new Map([[1, "Jane Roe"]]),
+        tasks: [
+          { id: 1, title: "Follow up with Jane Roe", description: null, frequency: "once", next_due_date: "2026-08-13", paused: 0, created_at: "2026-01-01", client_id: 1 },
+          { id: 2, title: "Renew PI insurance", description: null, frequency: "once", next_due_date: "2026-09-01", paused: 0, created_at: "2026-01-01" },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.find((t: { id: number }) => t.id === 1)).toMatchObject({ clientId: 1, clientName: "Jane Roe" });
+    expect(body.find((t: { id: number }) => t.id === 2)).toMatchObject({ clientId: null, clientName: null });
   });
 });
 
@@ -229,6 +262,23 @@ describe("POST /api/tasks", () => {
     const body = await res.json();
     expect(body).toMatchObject({ title: "Renew insurance", frequency: "yearly", nextDueDate: "2027-01-01", paused: false });
     expect(body.occurrences).toEqual([]);
+  });
+
+  it("links a follow-up task to a client and returns the client's name", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Follow up with Jane Roe", frequency: "once", nextDueDate: "2026-08-13", clientId: 1 }),
+      },
+      fakeEnv({ clients: new Map([[1, "Jane Roe"]]) }),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.clientId).toBe(1);
+    expect(body.clientName).toBe("Jane Roe");
   });
 });
 

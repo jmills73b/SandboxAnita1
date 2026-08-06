@@ -560,6 +560,8 @@ export interface Task {
   nextDueDate: string;
   paused: boolean;
   createdAt: string;
+  clientId: number | null;
+  clientName: string | null;
 }
 
 export interface TaskDetail extends Task {
@@ -579,6 +581,7 @@ export function addTask(input: {
   description?: string | null;
   frequency: TaskFrequency;
   nextDueDate: string;
+  clientId?: number | null;
 }): Promise<TaskDetail> {
   return request("/api/tasks", { method: "POST", body: JSON.stringify(input) });
 }
@@ -591,6 +594,7 @@ export function updateTask(
     frequency: TaskFrequency;
     nextDueDate: string;
     paused: boolean;
+    clientId: number | null;
   }>,
 ): Promise<TaskDetail> {
   return request(`/api/tasks/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
