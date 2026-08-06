@@ -47,6 +47,12 @@ const TILES = [
     desc: "Track recurring and one-off things to do, with due dates and history.",
     active: true,
   },
+  {
+    key: "admin",
+    name: "Admin & Settings",
+    desc: "Manage categories, billing settings, and account tools for every function.",
+    active: true,
+  },
 ] as const;
 
 export type DashboardTile = (typeof TILES)[number]["key"];

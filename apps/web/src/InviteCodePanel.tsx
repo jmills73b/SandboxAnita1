@@ -13,7 +13,7 @@ function randomCode(): string {
     .slice(0, 10);
 }
 
-export function InviteCodePanel({ onClose }: { onClose: () => void }) {
+export function InviteCodePanel({ onClose }: { onClose?: () => void }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,9 +85,11 @@ export function InviteCodePanel({ onClose }: { onClose: () => void }) {
             <button type="button" className="secondary" onClick={handleGenerate} disabled={saving}>
               Generate random code
             </button>
-            <button type="button" onClick={onClose} disabled={saving}>
-              Close
-            </button>
+            {onClose && (
+              <button type="button" onClick={onClose} disabled={saving}>
+                Close
+              </button>
+            )}
           </div>
         </>
       )}

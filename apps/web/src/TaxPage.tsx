@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   calculateTaxAndNi,
   currentTaxYearStartYear,
@@ -12,7 +12,6 @@ import {
   getExpenses,
   getInvoices,
   getTaxYearSettings,
-  setTaxYearRates,
   type Expense,
   type Invoice,
   type TaxRates,
@@ -78,11 +77,9 @@ export function TaxPage({ onBack }: { onBack: () => void }) {
   const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingRates, setEditingRates] = useState(false);
 
   async function refresh(startYear: number) {
     setLoading(true);
-    setEditingRates(false);
     try {
       const [invoiceList, expenseList, taxYearSettings] = await Promise.all([
         getInvoices(),
@@ -138,16 +135,10 @@ export function TaxPage({ onBack }: { onBack: () => void }) {
 
       {loading ? (
         <p className="loading">Loading…</p>
-      ) : !complete || editingRates ? (
-        <RatesForm
-          startYear={selectedStartYear}
-          rates={settings?.rates ?? null}
-          onSaved={(updated) => {
-            setSettings(updated);
-            setEditingRates(false);
-          }}
-          onCancel={complete ? () => setEditingRates(false) : undefined}
-        />
+      ) : !complete ? (
+        <p className="empty">
+          Rates for {taxYearLabel(selectedStartYear)} haven't been set yet — add them in Admin &amp; Settings.
+        </p>
       ) : (
         <TaxSummary
           invoices={invoices}
@@ -156,150 +147,9 @@ export function TaxPage({ onBack }: { onBack: () => void }) {
           taxYear={settings!.taxYear}
           rates={rates as FilledTaxRates}
           ratesConfirmedAt={settings!.ratesConfirmedAt}
-          onEditRates={() => setEditingRates(true)}
         />
       )}
     </>
-  );
-}
-
-const RATE_FIELDS: Array<{ key: keyof TaxRates; label: string; isRate: boolean }> = [
-  { key: "personalAllowance", label: "Personal allowance (£)", isRate: false },
-  { key: "basicRate", label: "Basic rate (e.g. 0.2 for 20%)", isRate: true },
-  { key: "basicRateThreshold", label: "Basic rate threshold (£)", isRate: false },
-  { key: "higherRate", label: "Higher rate (e.g. 0.4 for 40%)", isRate: true },
-  { key: "higherRateThreshold", label: "Higher rate threshold (£)", isRate: false },
-  { key: "additionalRate", label: "Additional rate (e.g. 0.45 for 45%)", isRate: true },
-  { key: "niLowerThreshold", label: "NI lower threshold (£)", isRate: false },
-  { key: "niUpperThreshold", label: "NI upper threshold (£)", isRate: false },
-  { key: "niLowerRate", label: "NI lower rate (e.g. 0.06 for 6%)", isRate: true },
-  { key: "niUpperRate", label: "NI upper rate (e.g. 0.02 for 2%)", isRate: true },
-  { key: "class2FlatRate", label: "Class 2 flat charge (£/year)", isRate: false },
-];
-
-function RatesForm({
-  startYear,
-  rates,
-  onSaved,
-  onCancel,
-}: {
-  startYear: number;
-  rates: TaxRates | null;
-  onSaved: (settings: TaxYearSettings) => void;
-  onCancel?: () => void;
-}) {
-  const [form, setForm] = useState<Record<string, string>>(() =>
-    Object.fromEntries(RATE_FIELDS.map(({ key }) => [key, rates?.[key] != null ? String(rates[key]) : ""])),
-  );
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    setFormError(null);
-
-    const parsed: Record<string, number> = {};
-    for (const { key, label } of RATE_FIELDS) {
-      const value = Number(form[key]);
-      if (!Number.isFinite(value) || value < 0) {
-        setFormError(`Enter a valid value for "${label}"`);
-        return;
-      }
-      parsed[key] = value;
-    }
-
-    setSubmitting(true);
-    try {
-      const updated = await setTaxYearRates(startYear, parsed as FilledTaxRates);
-      onSaved(updated);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Couldn't save those rates");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="edit-panel">
-      <p className="edit-panel-title">
-        Tax &amp; NI rates for {taxYearLabel(startYear)}
-      </p>
-      <p className="hint">
-        These come from HMRC's published rates for the tax year — enter them here once, and reuse this page's
-        calculations for every future year by updating them again then.
-      </p>
-
-      <p className="settings-section-title">Income tax</p>
-      <div className="edit-row">
-        {RATE_FIELDS.slice(0, 5).map(({ key, label }) => (
-          <label className="edit-field" key={key}>
-            <span>{label}</span>
-            <input
-              className="input-compact"
-              type="number"
-              step="any"
-              min="0"
-              value={form[key]}
-              onChange={(event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))}
-              required
-            />
-          </label>
-        ))}
-      </div>
-
-      <p className="settings-section-title">Additional rate</p>
-      <div className="edit-row">
-        {RATE_FIELDS.slice(5, 6).map(({ key, label }) => (
-          <label className="edit-field" key={key}>
-            <span>{label}</span>
-            <input
-              className="input-compact"
-              type="number"
-              step="any"
-              min="0"
-              value={form[key]}
-              onChange={(event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))}
-              required
-            />
-          </label>
-        ))}
-      </div>
-
-      <p className="settings-section-title">National Insurance</p>
-      <div className="edit-row">
-        {RATE_FIELDS.slice(6).map(({ key, label }) => (
-          <label className="edit-field" key={key}>
-            <span>{label}</span>
-            <input
-              className="input-compact"
-              type="number"
-              step="any"
-              min="0"
-              value={form[key]}
-              onChange={(event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))}
-              required
-            />
-          </label>
-        ))}
-      </div>
-
-      {formError && (
-        <p className="error" role="alert">
-          {formError}
-        </p>
-      )}
-
-      <div className="row-actions">
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Save rates"}
-        </button>
-        {onCancel && (
-          <button type="button" onClick={onCancel} disabled={submitting}>
-            Cancel
-          </button>
-        )}
-      </div>
-    </form>
   );
 }
 
@@ -310,7 +160,6 @@ function TaxSummary({
   taxYear,
   rates,
   ratesConfirmedAt,
-  onEditRates,
 }: {
   invoices: Invoice[];
   expenses: Expense[];
@@ -318,7 +167,6 @@ function TaxSummary({
   taxYear: string;
   rates: FilledTaxRates;
   ratesConfirmedAt: string | null;
-  onEditRates: () => void;
 }) {
   const isCurrentYear = startYear === currentTaxYearStartYear();
   const settings: TaxRateSettings = rates;
@@ -341,9 +189,6 @@ function TaxSummary({
           <h2>{taxYear}</h2>
           {ratesConfirmedAt && <span className="target-line">Rates last set {formatDate(ratesConfirmedAt)}</span>}
         </div>
-        <button type="button" className="secondary" onClick={onEditRates}>
-          Edit rates
-        </button>
       </div>
 
       <p className="mode-caption">

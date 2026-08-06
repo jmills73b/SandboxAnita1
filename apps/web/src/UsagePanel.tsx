@@ -36,7 +36,7 @@ function UsageBar({ label, used, cap, format }: { label: string; used: number; c
   );
 }
 
-export function UsagePanel({ onClose }: { onClose: () => void }) {
+export function UsagePanel({ onClose }: { onClose?: () => void }) {
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,11 +68,13 @@ export function UsagePanel({ onClose }: { onClose: () => void }) {
           <UsageBar label="D1 storage" used={usage.d1Storage.used} cap={usage.d1Storage.cap} format={formatBytes} />
         </div>
       ) : null}
-      <div className="row-actions">
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
+      {onClose && (
+        <div className="row-actions">
+          <button type="button" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 }
