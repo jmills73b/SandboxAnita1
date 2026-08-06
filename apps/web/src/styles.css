@@ -184,10 +184,17 @@ button.brand {
 
 .page-header-right {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.page-header-buttons {
+  display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
-  font-size: 14px;
 }
 
 .who {
@@ -603,6 +610,96 @@ button.client-link:hover {
 
 .category-add-form {
   margin: 12px 0 0;
+}
+
+/* Admin & Settings — a left rail of top-level sections (Categories,
+   Billing, Account), each with its own row of sub-tabs, rather than the
+   category/settings managers this replaced scattering across every page. */
+.admin-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.admin-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+  width: 168px;
+  padding-right: 20px;
+  border-right: 1px solid var(--line);
+}
+
+.admin-rail-item {
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.admin-rail-item:hover {
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+
+.admin-rail-item.active {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.admin-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.subtabs {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.subtab {
+  margin-bottom: -1px;
+  padding: 0 0 10px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.subtab:hover {
+  color: var(--ink-soft);
+}
+
+.subtab.active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .admin-layout {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .admin-rail {
+    flex-direction: row;
+    width: auto;
+    padding-right: 0;
+    padding-bottom: 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+  }
 }
 
 .form {
