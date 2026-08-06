@@ -25,8 +25,20 @@ const ACTION_LABELS: Record<TaskAction, string> = {
   not_needed: "Not needed",
 };
 
+const DEFAULT_DUE_TIME = "09:30";
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// "14:00" -> "2:00 PM". There's no notification delivery in this app —
+// nothing fires at this time — so it's purely a label alongside the date.
+function formatTime(time: string): string {
+  const [hoursStr, minutes] = time.split(":");
+  const hours = Number(hoursStr);
+  const period = hours >= 12 ? "PM" : "AM";
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelveHour}:${minutes} ${period}`;
 }
 
 function dueClass(task: Task, today: string): string {
@@ -49,6 +61,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState<TaskFrequency>("monthly");
   const [nextDueDate, setNextDueDate] = useState(todayISO());
+  const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME);
   const [submitting, setSubmitting] = useState(false);
 
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -61,6 +74,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   const [editDescription, setEditDescription] = useState("");
   const [editFrequency, setEditFrequency] = useState<TaskFrequency>("monthly");
   const [editNextDueDate, setEditNextDueDate] = useState("");
+  const [editDueTime, setEditDueTime] = useState(DEFAULT_DUE_TIME);
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -91,11 +105,12 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
 
     setSubmitting(true);
     try {
-      await addTask({ title: trimmed, description: description.trim() || null, frequency, nextDueDate });
+      await addTask({ title: trimmed, description: description.trim() || null, frequency, nextDueDate, dueTime });
       setTitle("");
       setDescription("");
       setFrequency("monthly");
       setNextDueDate(todayISO());
+      setDueTime(DEFAULT_DUE_TIME);
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that task");
@@ -159,6 +174,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     setEditDescription(task.description ?? "");
     setEditFrequency(task.frequency);
     setEditNextDueDate(task.nextDueDate);
+    setEditDueTime(task.dueTime);
     setEditError(null);
   }
 
@@ -182,6 +198,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
         description: editDescription.trim() || null,
         frequency: editFrequency,
         nextDueDate: editNextDueDate,
+        dueTime: editDueTime,
       });
       setEditingId(null);
       await refresh();
@@ -245,6 +262,10 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
           onChange={(event) => setNextDueDate(event.target.value)}
           required
         />
+        <label className="sr-only" htmlFor="task-due-time">
+          Time (optional, defaults to 9:30 AM)
+        </label>
+        <input id="task-due-time" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
         <button type="submit" disabled={submitting}>
           {submitting ? "Saving…" : "Add reminder"}
         </button>
@@ -295,6 +316,15 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                 onChange={(event) => setEditNextDueDate(event.target.value)}
               />
             </label>
+            <label className="edit-field">
+              <span>Time</span>
+              <input
+                type="time"
+                className="input-compact"
+                value={editDueTime}
+                onChange={(event) => setEditDueTime(event.target.value)}
+              />
+            </label>
           </div>
           {editError && (
             <p className="error" role="alert">
@@ -322,7 +352,9 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
             <div className={`note-card task-card ${task.paused ? "task-paused" : ""}`} key={task.id}>
               <button type="button" className="note-card-summary" onClick={() => toggleExpand(task)}>
                 <div className="note-card-meta">
-                  <span className={`task-due-date ${dueClass(task, today)}`}>{task.nextDueDate}</span>
+                  <span className={`task-due-date ${dueClass(task, today)}`}>
+                    {task.nextDueDate} · {formatTime(task.dueTime)}
+                  </span>
                   <span className="task-title">{task.title}</span>
                   <span className="chip">{frequencyLabel(task.frequency)}</span>
                   {task.clientName && <span className="chip">{task.clientName}</span>}

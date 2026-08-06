@@ -15,6 +15,7 @@ interface StoredTask {
   description: string | null;
   frequency: string;
   next_due_date: string;
+  due_time?: string;
   paused: number;
   created_at: string;
   client_id?: number | null;
@@ -36,7 +37,7 @@ function fakeEnv(
   } = {},
 ): Env {
   const taskStore = new Map<number, StoredTask>(
-    (options.tasks ?? []).map((t) => [t.id, { client_id: null, ...t }]),
+    (options.tasks ?? []).map((t) => [t.id, { client_id: null, due_time: "09:30", ...t }]),
   );
   const occurrenceStore = new Map<number, StoredOccurrence>((options.occurrences ?? []).map((o) => [o.id, o]));
   const clients = options.clients ?? new Map([[1, "Test Client"]]);
@@ -59,9 +60,10 @@ function fakeEnv(
           },
           first: async <T,>() => {
             if (sql.includes("INSERT INTO tasks")) {
-              const [title, description, frequency, nextDueDateValue, clientId] = boundArgs as [
+              const [title, description, frequency, nextDueDateValue, dueTime, clientId] = boundArgs as [
                 string,
                 string | null,
+                string,
                 string,
                 string,
                 number | null,
@@ -73,6 +75,7 @@ function fakeEnv(
                 description,
                 frequency,
                 next_due_date: nextDueDateValue,
+                due_time: dueTime,
                 paused: 0,
                 created_at: "2026-08-06T00:00:00Z",
                 client_id: clientId,
@@ -103,9 +106,10 @@ function fakeEnv(
           },
           run: async () => {
             if (sql.includes("UPDATE tasks SET title = ?")) {
-              const [title, description, frequency, nextDueDateValue, paused, clientId, id] = boundArgs as [
+              const [title, description, frequency, nextDueDateValue, dueTime, paused, clientId, id] = boundArgs as [
                 string,
                 string | null,
+                string,
                 string,
                 string,
                 number,
@@ -120,6 +124,7 @@ function fakeEnv(
                   description,
                   frequency,
                   next_due_date: nextDueDateValue,
+                  due_time: dueTime,
                   paused,
                   client_id: clientId,
                 });
@@ -264,6 +269,48 @@ describe("POST /api/tasks", () => {
     expect(body.occurrences).toEqual([]);
   });
 
+  it("defaults dueTime to 09:30 when none is given", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Renew insurance", frequency: "yearly", nextDueDate: "2027-01-01" }),
+      },
+      fakeEnv(),
+    );
+    expect((await res.json()).dueTime).toBe("09:30");
+  });
+
+  it("accepts a custom dueTime", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Renew insurance", frequency: "yearly", nextDueDate: "2027-01-01", dueTime: "14:00" }),
+      },
+      fakeEnv(),
+    );
+    expect((await res.json()).dueTime).toBe("14:00");
+  });
+
+  it("rejects an invalid dueTime", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Renew insurance", frequency: "yearly", nextDueDate: "2027-01-01", dueTime: "9:30am" }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it("links a follow-up task to a client and returns the client's name", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
@@ -318,6 +365,31 @@ describe("PATCH /api/tasks/:id", () => {
     expect(res.status).toBe(200);
     expect((await res.json()).nextDueDate).toBe("2026-12-25");
   });
+
+  it("updates the due time", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ dueTime: "16:15" }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).dueTime).toBe("16:15");
+  });
+
+  it("rejects an invalid due time", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ dueTime: "not-a-time" }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("POST /api/tasks/:id/actions", () => {
@@ -355,6 +427,7 @@ describe("POST /api/tasks/:id/actions", () => {
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.nextDueDate).toBe("2026-08-17");
+    expect(body.dueTime).toBe("09:30");
     expect(body.paused).toBe(false);
     expect(body.occurrences).toEqual([{ id: 1, dueDate: "2026-08-10", action: "completed", actedAt: "2026-08-06T00:00:00Z" }]);
   });

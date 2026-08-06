@@ -14,12 +14,24 @@ function isValidAction(action: string): action is TaskAction {
   return (ACTIONS as readonly string[]).includes(action);
 }
 
+// There's no background notifier in this app — a due time is shown
+// alongside the date, not something that triggers anything, so it
+// defaults to a sensible time rather than being left blank when nobody
+// picks one.
+const DEFAULT_DUE_TIME = "09:30";
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function isValidTimeOfDay(value: string): boolean {
+  return TIME_RE.test(value);
+}
+
 interface TaskRow {
   id: number;
   title: string;
   description: string | null;
   frequency: TaskFrequency;
   next_due_date: string;
+  due_time: string;
   paused: number;
   created_at: string;
   client_id: number | null;
@@ -45,6 +57,7 @@ function toTask(row: TaskRow) {
     description: row.description,
     frequency: row.frequency,
     nextDueDate: row.next_due_date,
+    dueTime: row.due_time,
     paused: row.paused === 1,
     createdAt: row.created_at,
     clientId: row.client_id,
@@ -53,8 +66,8 @@ function toTask(row: TaskRow) {
 }
 
 const TASK_COLUMNS = `
-  tasks.id, tasks.title, tasks.description, tasks.frequency, tasks.next_due_date, tasks.paused,
-  tasks.created_at, tasks.client_id, clients.name AS client_name
+  tasks.id, tasks.title, tasks.description, tasks.frequency, tasks.next_due_date, tasks.due_time,
+  tasks.paused, tasks.created_at, tasks.client_id, clients.name AS client_name
 `;
 
 async function fetchTask(db: D1Database, id: number): Promise<TaskRow | null> {
@@ -104,6 +117,7 @@ tasks.post("/", async (c) => {
     description?: string | null;
     frequency?: string;
     nextDueDate?: string;
+    dueTime?: string;
     clientId?: number | null;
   }>();
 
@@ -114,11 +128,22 @@ tasks.post("/", async (c) => {
   if (!isValidTaskFrequency(body.frequency)) {
     return c.json({ error: "Invalid frequency" }, 400);
   }
+  const trimmedDueTime = body.dueTime?.trim();
+  if (trimmedDueTime && !isValidTimeOfDay(trimmedDueTime)) {
+    return c.json({ error: "Invalid due time" }, 400);
+  }
 
   const created = await c.env.DB.prepare(
-    "INSERT INTO tasks (title, description, frequency, next_due_date, client_id) VALUES (?, ?, ?, ?, ?) RETURNING id",
+    "INSERT INTO tasks (title, description, frequency, next_due_date, due_time, client_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
   )
-    .bind(title, body.description?.trim() || null, body.frequency, body.nextDueDate, body.clientId ?? null)
+    .bind(
+      title,
+      body.description?.trim() || null,
+      body.frequency,
+      body.nextDueDate,
+      trimmedDueTime || DEFAULT_DUE_TIME,
+      body.clientId ?? null,
+    )
     .first<{ id: number }>();
 
   if (!created) {
@@ -145,6 +170,7 @@ tasks.patch("/:id", async (c) => {
     description?: string | null;
     frequency?: string;
     nextDueDate?: string;
+    dueTime?: string;
     paused?: boolean;
     clientId?: number | null;
   }>();
@@ -156,18 +182,22 @@ tasks.patch("/:id", async (c) => {
   if (body.frequency !== undefined && !isValidTaskFrequency(body.frequency)) {
     return c.json({ error: "Invalid frequency" }, 400);
   }
+  if (body.dueTime !== undefined && !isValidTimeOfDay(body.dueTime)) {
+    return c.json({ error: "Invalid due time" }, 400);
+  }
 
   const title = trimmedTitle ?? existing.title;
   const description = body.description !== undefined ? body.description?.trim() || null : existing.description;
   const frequency = body.frequency ?? existing.frequency;
   const nextDueDateValue = body.nextDueDate ?? existing.next_due_date;
+  const dueTime = body.dueTime ?? existing.due_time;
   const paused = body.paused !== undefined ? (body.paused ? 1 : 0) : existing.paused;
   const clientId = body.clientId !== undefined ? body.clientId : existing.client_id;
 
   await c.env.DB.prepare(
-    "UPDATE tasks SET title = ?, description = ?, frequency = ?, next_due_date = ?, paused = ?, client_id = ? WHERE id = ?",
+    "UPDATE tasks SET title = ?, description = ?, frequency = ?, next_due_date = ?, due_time = ?, paused = ?, client_id = ? WHERE id = ?",
   )
-    .bind(title, description, frequency, nextDueDateValue, paused, clientId, id)
+    .bind(title, description, frequency, nextDueDateValue, dueTime, paused, clientId, id)
     .run();
 
   const updated = await fetchTask(c.env.DB, id);

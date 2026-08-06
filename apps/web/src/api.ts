@@ -558,6 +558,7 @@ export interface Task {
   description: string | null;
   frequency: TaskFrequency;
   nextDueDate: string;
+  dueTime: string;
   paused: boolean;
   createdAt: string;
   clientId: number | null;
@@ -581,6 +582,7 @@ export function addTask(input: {
   description?: string | null;
   frequency: TaskFrequency;
   nextDueDate: string;
+  dueTime?: string;
   clientId?: number | null;
 }): Promise<TaskDetail> {
   return request("/api/tasks", { method: "POST", body: JSON.stringify(input) });
@@ -593,6 +595,7 @@ export function updateTask(
     description: string | null;
     frequency: TaskFrequency;
     nextDueDate: string;
+    dueTime: string;
     paused: boolean;
     clientId: number | null;
   }>,

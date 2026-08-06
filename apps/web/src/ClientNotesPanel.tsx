@@ -30,6 +30,16 @@ function dueClass(task: Task, today: string): string {
   return "";
 }
 
+// "14:00" -> "2:00 PM". There's no notification delivery in this app —
+// nothing fires at this time — so it's purely a label alongside the date.
+function formatTime(time: string): string {
+  const [hoursStr, minutes] = time.split(":");
+  const hours = Number(hoursStr);
+  const period = hours >= 12 ? "PM" : "AM";
+  const twelveHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${twelveHour}:${minutes} ${period}`;
+}
+
 function truncate(text: string, max: number): string {
   const collapsed = text.replace(/\s+/g, " ").trim();
   return collapsed.length > max ? `${collapsed.slice(0, max - 1)}…` : collapsed;
@@ -243,8 +253,14 @@ export function ClientNotesPanel({
     setEditingId(null);
   }
 
-  async function saveFollowUp(input: { title: string; dueDate: string }) {
-    await addTask({ title: input.title, frequency: "once", nextDueDate: input.dueDate, clientId });
+  async function saveFollowUp(input: { title: string; dueDate: string; dueTime: string }) {
+    await addTask({
+      title: input.title,
+      frequency: "once",
+      nextDueDate: input.dueDate,
+      dueTime: input.dueTime,
+      clientId,
+    });
     setShowNewFollowUp(false);
     setFollowUpForNoteId(null);
     await refresh();
@@ -331,7 +347,9 @@ export function ClientNotesPanel({
             <div className="note-card task-card" key={task.id}>
               <div className="note-card-body">
                 <div className="note-card-meta">
-                  <span className={`task-due-date ${dueClass(task, todayISO())}`}>{task.nextDueDate}</span>
+                  <span className={`task-due-date ${dueClass(task, todayISO())}`}>
+                    {task.nextDueDate} · {formatTime(task.dueTime)}
+                  </span>
                   <span className="task-title">{task.title}</span>
                 </div>
                 <div className="row-actions">

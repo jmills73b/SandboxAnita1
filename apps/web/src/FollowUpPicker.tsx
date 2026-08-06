@@ -23,13 +23,15 @@ function addOneMonth(iso: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+const DEFAULT_DUE_TIME = "09:30";
+
 export function FollowUpPicker({
   defaultTitle,
   onSave,
   onCancel,
 }: {
   defaultTitle: string;
-  onSave: (input: { title: string; dueDate: string }) => Promise<void>;
+  onSave: (input: { title: string; dueDate: string; dueTime: string }) => Promise<void>;
   onCancel: () => void;
 }) {
   const inWeek = addDays(todayISO(), 7);
@@ -37,6 +39,7 @@ export function FollowUpPicker({
 
   const [title, setTitle] = useState(defaultTitle);
   const [dueDate, setDueDate] = useState(inWeek);
+  const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +52,7 @@ export function FollowUpPicker({
     setError(null);
     setSaving(true);
     try {
-      await onSave({ title: trimmed, dueDate });
+      await onSave({ title: trimmed, dueDate, dueTime });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save the follow-up");
     } finally {
@@ -77,6 +80,12 @@ export function FollowUpPicker({
             className="input-compact"
             value={dueDate}
             onChange={(event) => setDueDate(event.target.value)}
+          />
+          <input
+            type="time"
+            className="input-compact"
+            value={dueTime}
+            onChange={(event) => setDueTime(event.target.value)}
           />
         </div>
       </div>
