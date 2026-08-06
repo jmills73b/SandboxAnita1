@@ -50,10 +50,14 @@ usage.get("/", async (c) => {
 
   const since = startOfTodayUTC();
   const now = new Date().toISOString();
+  const today = new Date().toISOString().slice(0, 10);
 
-  // Both Workers requests and D1 rows-read/written come from the same
-  // GraphQL Analytics API in one round trip; D1 storage is a separate REST
-  // call below since it's a current snapshot, not a metered daily count.
+  // Workers requests come from the raw workersInvocationsAdaptive dataset
+  // (datetime-filtered), while D1's rows-read/written come from the
+  // d1AnalyticsAdaptiveGroups dataset, which is a daily rollup filtered by
+  // Date rather than datetime — the two datasets don't share a filter shape.
+  // D1 storage is a separate REST call below since it's a current snapshot,
+  // not a metered daily count.
   const graphqlRes = await fetch("https://api.cloudflare.com/client/v4/graphql", {
     method: "POST",
     headers: {
@@ -62,17 +66,17 @@ usage.get("/", async (c) => {
     },
     body: JSON.stringify({
       query: `
-        query UsageToday($accountTag: string, $since: string, $until: string) {
+        query UsageToday($accountTag: string, $since: string, $until: string, $today: Date) {
           viewer {
             accounts(filter: { accountTag: $accountTag }) {
-              workers: workersInvocationsAdaptiveGroups(
-                filter: { datetime_geq: $since, datetime_lt: $until }
+              workers: workersInvocationsAdaptive(
+                filter: { datetime_geq: $since, datetime_leq: $until }
                 limit: 1
               ) {
                 sum { requests }
               }
               d1: d1AnalyticsAdaptiveGroups(
-                filter: { datetime_geq: $since, datetime_lt: $until }
+                filter: { date_geq: $today, date_leq: $today }
                 limit: 1
               ) {
                 sum { rowsRead rowsWritten }
@@ -81,7 +85,7 @@ usage.get("/", async (c) => {
           }
         }
       `,
-      variables: { accountTag: accountId, since, until: now },
+      variables: { accountTag: accountId, since, until: now, today },
     }),
   });
 
