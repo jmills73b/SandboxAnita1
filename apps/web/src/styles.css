@@ -185,6 +185,7 @@ button.brand {
 .page-header-right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
   font-size: 14px;
 }
