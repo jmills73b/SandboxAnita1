@@ -10,6 +10,7 @@ import {
   type Client,
   type ClientCategory,
 } from "./api";
+import { ClientNotesPanel } from "./ClientNotesPanel";
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -73,6 +74,8 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  const [notesClient, setNotesClient] = useState<Client | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -236,6 +239,14 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         <CategoryManager categories={categories} clients={clients} onChanged={refresh} />
       )}
 
+      {notesClient && (
+        <ClientNotesPanel
+          clientId={notesClient.id}
+          clientName={notesClient.name}
+          onClose={() => setNotesClient(null)}
+        />
+      )}
+
       {editingId !== null && (
         <div className="edit-panel">
           <p className="edit-panel-title">Editing "{editName || "…"}"</p>
@@ -353,6 +364,9 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(client)}>
                         Edit
+                      </button>
+                      <button type="button" className="secondary" onClick={() => setNotesClient(client)}>
+                        Notes
                       </button>
                     </div>
                   </td>

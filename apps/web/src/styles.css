@@ -623,7 +623,8 @@ label {
   color: var(--ink-soft);
 }
 
-input {
+input,
+textarea {
   font-size: 16px;
   padding: 12px 14px;
   border: 1px solid var(--line-strong);
@@ -631,6 +632,11 @@ input {
   background: var(--paper-raised);
   color: var(--ink);
   flex: 1;
+}
+
+textarea {
+  font-family: var(--sans);
+  resize: vertical;
 }
 
 button {
@@ -1066,6 +1072,146 @@ button.secondary {
   height: 1px;
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
+}
+
+/* Initial meeting / advice notes */
+.notes-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.notes-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.notes-panel-header .edit-panel-title {
+  margin: 0;
+}
+
+.notes-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.notes-toolbar button {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-card {
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper);
+}
+
+.note-card-summary {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.note-card-summary:hover {
+  background: var(--paper-raised);
+}
+
+.note-card-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.note-card-date {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+.note-edited-badge {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.note-card-preview {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.note-card-body {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Rendered Markdown output from apps/web/src/markdown.ts */
+.note-body {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.note-body p {
+  margin: 0 0 10px;
+}
+
+.note-body p:last-child {
+  margin-bottom: 0;
+}
+
+.note-body ul,
+.note-body ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.note-body li {
+  margin-bottom: 4px;
+}
+
+.note-history {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.note-history-item {
+  border-left: 2px solid var(--line-strong);
+  padding-left: 12px;
+}
+
+.note-history-label {
+  font-style: italic;
 }
 
 @media (max-width: 420px) {

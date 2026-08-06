@@ -470,3 +470,74 @@ export interface UsageStats {
 export function getUsage(): Promise<UsageStats> {
   return request("/api/usage");
 }
+
+export interface NoteCategory {
+  id: number;
+  name: string;
+}
+
+export function getNoteCategories(): Promise<NoteCategory[]> {
+  return request("/api/note-categories");
+}
+
+export function addNoteCategory(name: string): Promise<NoteCategory> {
+  return request("/api/note-categories", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function renameNoteCategory(id: number, name: string): Promise<NoteCategory> {
+  return request(`/api/note-categories/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+export function deleteNoteCategory(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/note-categories/${id}`, { method: "DELETE" });
+}
+
+export interface NoteVersion {
+  id: number;
+  date: string;
+  categoryId: number | null;
+  category: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface ClientNoteSummary {
+  id: number;
+  clientId: number;
+  clientName: string;
+  createdAt: string;
+  versionCount: number;
+  latest: NoteVersion;
+}
+
+export interface ClientNoteDetail {
+  id: number;
+  clientId: number;
+  clientName: string;
+  createdAt: string;
+  versions: NoteVersion[];
+}
+
+export function getClientNotes(): Promise<ClientNoteSummary[]> {
+  return request("/api/client-notes");
+}
+
+export function getClientNote(id: number): Promise<ClientNoteDetail> {
+  return request(`/api/client-notes/${id}`);
+}
+
+export function addClientNote(input: {
+  clientId: number;
+  date: string;
+  categoryId?: number | null;
+  body: string;
+}): Promise<ClientNoteDetail> {
+  return request("/api/client-notes", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function addClientNoteVersion(
+  id: number,
+  input: { date: string; categoryId?: number | null; body: string },
+): Promise<ClientNoteDetail> {
+  return request(`/api/client-notes/${id}/versions`, { method: "POST", body: JSON.stringify(input) });
+}
