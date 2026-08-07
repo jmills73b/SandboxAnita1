@@ -993,6 +993,13 @@ button.secondary {
   padding: 14px 16px;
 }
 
+/* A lone stat (Expenses' total, with no other tiles beside it) would
+   otherwise leave the grid's other column tracks empty — visible as a
+   bare, tinted box with nothing in it. Span the full row instead. */
+.client-stat:only-child {
+  grid-column: 1 / -1;
+}
+
 .client-stat .n {
   font-family: var(--sans);
   font-variant-numeric: tabular-nums;
