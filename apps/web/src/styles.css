@@ -222,6 +222,34 @@ button.brand {
   gap: 10px;
 }
 
+/* Icon-only appearance switcher living in the header — a fast way to
+   flip themes without a trip through Admin & Settings, which still
+   holds the full version with theme names and descriptions. */
+.theme-quick-switch {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.theme-quick-switch button {
+  font-size: 16px;
+  line-height: 1;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 0;
+  background: var(--paper-raised);
+  cursor: pointer;
+}
+
+.theme-quick-switch button:not(:last-child) {
+  border-right: 1px solid var(--line-strong);
+}
+
+.theme-quick-switch button.active {
+  background: var(--ink);
+}
+
 .who {
   color: var(--ink-faint);
   font-size: 13px;

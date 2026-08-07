@@ -10,6 +10,7 @@ import { PerformancePage } from "./PerformancePage";
 import { TaskSummaryPanel } from "./TaskSummaryPanel";
 import { TasksPage } from "./TasksPage";
 import { TaxPage } from "./TaxPage";
+import { ThemeQuickSwitch } from "./ThemeQuickSwitch";
 import { TimeKeepingPage } from "./TimeKeepingPage";
 import { Brand } from "./Brand";
 
@@ -53,6 +54,7 @@ export function SignedInApp({
         <div className="page-header-right">
           <span className="who">{email}</span>
           <div className="page-header-buttons">
+            <ThemeQuickSwitch />
             <button
               type="button"
               className="secondary task-badge-button"
