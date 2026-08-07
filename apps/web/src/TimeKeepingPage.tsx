@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   addClient,
   addTimeEntry,
@@ -18,8 +19,16 @@ import { ClientPicker, type ClientMode } from "./InvoicesPage";
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
+const YEAR_OPTIONS = 6;
+
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Both sides are plain "YYYY-MM-DD", so this is a lexicographic compare —
+// no Date parsing, no timezone to get wrong.
+function isInTaxYear(dateStr: string, startYear: number): boolean {
+  return dateStr >= taxYearStartDate(startYear) && dateStr < taxYearStartDate(startYear + 1);
 }
 
 function formatMinutes(minutes: number): string {
@@ -61,6 +70,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
+  const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -221,16 +231,18 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const yearEntries = entries.filter((entry) => isInTaxYear(entry.date, selectedStartYear));
+
   const trimmedSearch = search.trim().toLowerCase();
-  const filteredEntries = entries.filter(
+  const filteredEntries = yearEntries.filter(
     (entry) =>
       (categoryFilter === "all" || String(entry.categoryId ?? "") === categoryFilter) &&
       (entry.description.toLowerCase().includes(trimmedSearch) ||
         entry.clientName.toLowerCase().includes(trimmedSearch)),
   );
 
-  const totalMinutes = entries.reduce((sum, entry) => sum + entry.minutes, 0);
-  const totalFee = entries.reduce((sum, entry) => sum + (entry.feeValue ?? 0), 0);
+  const totalMinutes = yearEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+  const totalFee = yearEntries.reduce((sum, entry) => sum + (entry.feeValue ?? 0), 0);
   const unitMinutes = settings?.unitMinutes ?? 8;
   const previewUnits = Number(units);
   const showPreview = Number.isInteger(previewUnits) && previewUnits > 0;
@@ -440,21 +452,35 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
         </p>
       )}
 
-      {!loading && entries.length > 0 && (
+      {!loading && yearEntries.length > 0 && (
         <div className="client-stats">
           <div className="client-stat">
             <div className="n">{formatMinutes(totalMinutes)}</div>
-            <div className="l">Total time logged</div>
+            <div className="l">Total time logged ({taxYearLabel(selectedStartYear)})</div>
           </div>
           <div className="client-stat">
             <div className="n">{money.format(totalFee)}</div>
-            <div className="l">Total value</div>
+            <div className="l">Total value ({taxYearLabel(selectedStartYear)})</div>
           </div>
         </div>
       )}
 
       {entries.length > 0 && (
         <div className="filters">
+          <label className="sr-only" htmlFor="time-tax-year">
+            Tax year
+          </label>
+          <select
+            id="time-tax-year"
+            value={selectedStartYear}
+            onChange={(event) => setSelectedStartYear(Number(event.target.value))}
+          >
+            {recentTaxYearStartYears(YEAR_OPTIONS).map((year) => (
+              <option key={year} value={year}>
+                {taxYearLabel(year)}
+              </option>
+            ))}
+          </select>
           <label className="sr-only" htmlFor="time-search">
             Search by client or description
           </label>
@@ -487,6 +513,8 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
         <p className="loading">Loading…</p>
       ) : entries.length === 0 ? (
         <p className="empty">No time logged yet — add the first entry above.</p>
+      ) : yearEntries.length === 0 ? (
+        <p className="empty">No time logged in {taxYearLabel(selectedStartYear)}.</p>
       ) : filteredEntries.length === 0 ? (
         <p className="empty">No time entries match your search.</p>
       ) : (
