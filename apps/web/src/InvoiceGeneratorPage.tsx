@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   createInvoiceBatch,
   getFirms,
@@ -16,6 +17,8 @@ import { downloadInvoicePdf } from "./invoicePdf";
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
+const YEAR_OPTIONS = 6;
+
 function dayLabel(dateStr: string): string {
   const year = Number(dateStr.slice(0, 4));
   const month = Number(dateStr.slice(5, 7));
@@ -25,6 +28,12 @@ function dayLabel(dateStr: string): string {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Both sides are plain "YYYY-MM-DD", so this is a lexicographic compare —
+// no Date parsing, no timezone to get wrong.
+function isInTaxYear(dateStr: string, startYear: number): boolean {
+  return dateStr >= taxYearStartDate(startYear) && dateStr < taxYearStartDate(startYear + 1);
 }
 
 // Ready to bill: the client has paid Newmans, but Anita hasn't been paid
@@ -44,6 +53,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [batchDate, setBatchDate] = useState(today());
   const [generating, setGenerating] = useState(false);
+  const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
 
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null);
 
@@ -78,6 +88,8 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
     () => invoices.filter(isBillable).sort((a, b) => a.invoiceDate.localeCompare(b.invoiceDate)),
     [invoices],
   );
+
+  const yearBatches = batches.filter((batch) => isInTaxYear(batch.invoiceDate, selectedStartYear));
 
   const selectedInvoices = candidates.filter((invoice) => selectedIds.has(invoice.id));
   const totalFee = selectedInvoices.reduce((sum, invoice) => sum + invoice.totalAmount, 0);
@@ -242,8 +254,30 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
           )}
 
           <h2 className="section-heading">Previously generated</h2>
+
+          {batches.length > 0 && (
+            <div className="filters">
+              <label className="sr-only" htmlFor="batch-tax-year">
+                Tax year
+              </label>
+              <select
+                id="batch-tax-year"
+                value={selectedStartYear}
+                onChange={(event) => setSelectedStartYear(Number(event.target.value))}
+              >
+                {recentTaxYearStartYears(YEAR_OPTIONS).map((year) => (
+                  <option key={year} value={year}>
+                    {taxYearLabel(year)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {batches.length === 0 ? (
             <p className="empty">No invoices generated yet.</p>
+          ) : yearBatches.length === 0 ? (
+            <p className="empty">No invoices generated in {taxYearLabel(selectedStartYear)}.</p>
           ) : (
             <div className="table-scroll">
               <table className="ledger">
@@ -257,7 +291,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {batches.map((batch) => (
+                  {yearBatches.map((batch) => (
                     <tr key={batch.id}>
                       <td>{batch.reference}</td>
                       <td>{dayLabel(batch.invoiceDate)}</td>
