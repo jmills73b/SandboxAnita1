@@ -200,6 +200,24 @@ button.brand {
 .who {
   color: var(--ink-faint);
   font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+/* At phone widths, the email address alongside Tasks/Sign out barely
+   clears the brand on one row — a real email (longer than a test
+   fixture) or a browser with slightly different font metrics tips it
+   into clipping instead of wrapping. Give it its own row rather than
+   leaving that to chance. */
+@media (max-width: 480px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header-right {
+    align-items: flex-start;
+    width: 100%;
+  }
 }
 
 .back-link {
@@ -280,12 +298,12 @@ button.brand {
 .chip-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .chip {
   font-size: 12px;
-  padding: 6px 12px;
+  padding: 8px 14px;
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   background: var(--paper-raised);
@@ -533,7 +551,7 @@ button.client-link:hover {
 .edit-panel {
   border: 1px solid var(--line-strong);
   border-radius: 3px;
-  padding: 16px;
+  padding: 20px;
   margin-bottom: 20px;
   background: var(--paper-raised);
 }
@@ -560,8 +578,8 @@ button.client-link:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .edit-field {
@@ -570,6 +588,14 @@ button.client-link:hover {
   gap: 4px;
   font-size: 11px;
   color: var(--ink-faint);
+}
+
+/* A field sitting directly in the panel (e.g. the Category chips, outside
+   .edit-row) needs its own bottom margin — .edit-row supplies that for
+   the fields nested inside it, but this one has no sibling row to borrow
+   spacing from before the Save/Cancel buttons that follow it. */
+.edit-panel > .edit-field {
+  margin-bottom: 16px;
 }
 
 /* Sits directly below .quick-add, tagging the client being added — give it
