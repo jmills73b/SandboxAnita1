@@ -1396,6 +1396,10 @@ button.secondary {
   gap: 10px;
 }
 
+.note-list + .row-actions {
+  margin-top: 16px;
+}
+
 .note-card {
   border: 1px solid var(--line);
   border-radius: 3px;

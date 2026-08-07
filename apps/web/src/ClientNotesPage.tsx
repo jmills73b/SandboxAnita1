@@ -330,7 +330,7 @@ export function ClientNotesPage({
             className={`subtab ${tab === t.key ? "active" : ""}`}
             onClick={() => setTab(t.key)}
           >
-            {t.label}
+            {t.key === "previous" && notes.length > 0 ? `${t.label} (${notes.length})` : t.label}
           </button>
         ))}
       </div>
