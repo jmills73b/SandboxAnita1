@@ -210,7 +210,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
           {submitting ? "Saving…" : "Add client"}
         </button>
       </form>
-      <div className="edit-field">
+      <div className="edit-field quick-add-category">
         <span>Category</span>
         <CategoryChips categories={categories} selectedIds={categoryIds} onToggle={toggleCategory} />
       </div>

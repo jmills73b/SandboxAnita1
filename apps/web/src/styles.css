@@ -572,6 +572,13 @@ button.client-link:hover {
   color: var(--ink-faint);
 }
 
+/* Sits directly below .quick-add, tagging the client being added — give it
+   the same breathing room below as the form has, so it doesn't run into
+   the search/filter row underneath. */
+.quick-add-category {
+  margin-bottom: 24px;
+}
+
 .row-editing {
   background: var(--paper);
 }
