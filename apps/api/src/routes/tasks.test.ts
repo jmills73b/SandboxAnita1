@@ -245,11 +245,28 @@ describe("POST /api/tasks", () => {
       {
         method: "POST",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ title: "Renew insurance", frequency: "daily", nextDueDate: "2026-09-01" }),
+        body: JSON.stringify({ title: "Renew insurance", frequency: "biweekly", nextDueDate: "2026-09-01" }),
       },
       fakeEnv(),
     );
     expect(res.status).toBe(400);
+  });
+
+  it("accepts the daily, fortnightly, and four_weekly frequencies", async () => {
+    const cookie = await sessionCookie();
+    for (const frequency of ["daily", "fortnightly", "four_weekly"]) {
+      const res = await app.request(
+        "/api/tasks",
+        {
+          method: "POST",
+          headers: { Cookie: cookie },
+          body: JSON.stringify({ title: "Check something", frequency, nextDueDate: "2026-09-01" }),
+        },
+        fakeEnv(),
+      );
+      expect(res.status).toBe(201);
+      expect((await res.json()).frequency).toBe(frequency);
+    }
   });
 
   it("creates a task", async () => {
@@ -430,6 +447,19 @@ describe("POST /api/tasks/:id/actions", () => {
     expect(body.dueTime).toBe("09:30");
     expect(body.paused).toBe(false);
     expect(body.occurrences).toEqual([{ id: 1, dueDate: "2026-08-10", action: "completed", actedAt: "2026-08-06T00:00:00Z" }]);
+  });
+
+  it("advances next_due_date by 14 days for a fortnightly task", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks/1/actions",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "completed" }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Fortnightly stock check", description: null, frequency: "fortnightly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect((await res.json()).nextDueDate).toBe("2026-08-24");
   });
 
   it("treats 'not needed' the same as skipped for scheduling — it still advances", async () => {

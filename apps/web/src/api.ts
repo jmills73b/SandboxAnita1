@@ -547,7 +547,15 @@ export function addClientNoteVersion(
   return request(`/api/client-notes/${id}/versions`, { method: "POST", body: JSON.stringify(input) });
 }
 
-export type TaskFrequency = "once" | "weekly" | "monthly" | "quarterly" | "yearly";
+export type TaskFrequency =
+  | "once"
+  | "daily"
+  | "weekly"
+  | "fortnightly"
+  | "four_weekly"
+  | "monthly"
+  | "quarterly"
+  | "yearly";
 export type TaskAction = "completed" | "skipped" | "not_needed";
 
 export interface TaskOccurrence {

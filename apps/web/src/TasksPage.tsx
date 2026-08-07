@@ -13,7 +13,10 @@ import {
 
 const FREQUENCIES: { value: TaskFrequency; label: string }[] = [
   { value: "once", label: "One-off" },
+  { value: "daily", label: "Daily" },
   { value: "weekly", label: "Weekly" },
+  { value: "fortnightly", label: "Fortnightly" },
+  { value: "four_weekly", label: "Every 4 weeks" },
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Quarterly" },
   { value: "yearly", label: "Yearly" },
@@ -248,15 +251,6 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               />
             </label>
             <label className="edit-field">
-              <span>Description</span>
-              <input
-                className="input-compact"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Optional"
-              />
-            </label>
-            <label className="edit-field">
               <span>Frequency</span>
               <select
                 className="input-compact"
@@ -290,6 +284,16 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               />
             </label>
           </div>
+          <label className="edit-field">
+            <span>Description</span>
+            <textarea
+              className="notes-textarea"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={4}
+              placeholder="Optional"
+            />
+          </label>
           {error && (
             <p className="error" role="alert">
               {error}
@@ -321,14 +325,6 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
             <label className="edit-field">
               <span>Title</span>
               <input className="input-compact" value={editTitle} onChange={(event) => setEditTitle(event.target.value)} />
-            </label>
-            <label className="edit-field">
-              <span>Description</span>
-              <input
-                className="input-compact"
-                value={editDescription}
-                onChange={(event) => setEditDescription(event.target.value)}
-              />
             </label>
             <label className="edit-field">
               <span>Frequency</span>
@@ -363,6 +359,15 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               />
             </label>
           </div>
+          <label className="edit-field">
+            <span>Description</span>
+            <textarea
+              className="notes-textarea"
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              rows={4}
+            />
+          </label>
           {editError && (
             <p className="error" role="alert">
               {editError}

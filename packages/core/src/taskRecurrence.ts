@@ -1,4 +1,13 @@
-export const TASK_FREQUENCIES = ["once", "weekly", "monthly", "quarterly", "yearly"] as const;
+export const TASK_FREQUENCIES = [
+  "once",
+  "daily",
+  "weekly",
+  "fortnightly",
+  "four_weekly",
+  "monthly",
+  "quarterly",
+  "yearly",
+] as const;
 
 export type TaskFrequency = (typeof TASK_FREQUENCIES)[number];
 
@@ -23,16 +32,25 @@ function addMonths(dateStr: string, months: number): string {
   return new Date(Date.UTC(year, targetMonthIndex, clampedDay)).toISOString().slice(0, 10);
 }
 
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 // Computes a recurring task's next due date from its current one, so a
 // task stays on a steady cadence (e.g. always due on the 6th) rather than
 // drifting based on whichever day it actually got actioned.
 export function nextDueDate(dateStr: string, frequency: Exclude<TaskFrequency, "once">): string {
   switch (frequency) {
-    case "weekly": {
-      const d = new Date(`${dateStr}T00:00:00Z`);
-      d.setUTCDate(d.getUTCDate() + 7);
-      return d.toISOString().slice(0, 10);
-    }
+    case "daily":
+      return addDays(dateStr, 1);
+    case "weekly":
+      return addDays(dateStr, 7);
+    case "fortnightly":
+      return addDays(dateStr, 14);
+    case "four_weekly":
+      return addDays(dateStr, 28);
     case "monthly":
       return addMonths(dateStr, 1);
     case "quarterly":
