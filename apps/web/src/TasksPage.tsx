@@ -52,10 +52,14 @@ function frequencyLabel(frequency: TaskFrequency): string {
   return FREQUENCIES.find((f) => f.value === frequency)?.label ?? frequency;
 }
 
+type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+
 export function TasksPage({ onBack }: { onBack: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -69,7 +73,6 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   const [historyLoadingId, setHistoryLoadingId] = useState<number | null>(null);
   const [actingId, setActingId] = useState<number | null>(null);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editFrequency, setEditFrequency] = useState<TaskFrequency>("monthly");
@@ -93,6 +96,21 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     refresh();
   }, []);
 
+  function startAdd() {
+    setTitle("");
+    setDescription("");
+    setFrequency("monthly");
+    setNextDueDate(todayISO());
+    setDueTime(DEFAULT_DUE_TIME);
+    setError(null);
+    setMode({ kind: "add" });
+  }
+
+  function cancelAdd() {
+    setError(null);
+    setMode({ kind: "list" });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -106,11 +124,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     setSubmitting(true);
     try {
       await addTask({ title: trimmed, description: description.trim() || null, frequency, nextDueDate, dueTime });
-      setTitle("");
-      setDescription("");
-      setFrequency("monthly");
-      setNextDueDate(todayISO());
-      setDueTime(DEFAULT_DUE_TIME);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that task");
@@ -152,7 +166,6 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
 
   async function toggleExpand(task: Task) {
     setExpandedId((prev) => (prev === task.id ? null : task.id));
-    setEditingId(null);
   }
 
   async function loadHistory(taskId: number) {
@@ -169,18 +182,18 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   }
 
   function startEdit(task: Task) {
-    setEditingId(task.id);
     setEditTitle(task.title);
     setEditDescription(task.description ?? "");
     setEditFrequency(task.frequency);
     setEditNextDueDate(task.nextDueDate);
     setEditDueTime(task.dueTime);
     setEditError(null);
+    setMode({ kind: "edit", id: task.id });
   }
 
   function cancelEdit() {
-    setEditingId(null);
     setEditError(null);
+    setMode({ kind: "list" });
   }
 
   async function saveEdit(id: number) {
@@ -200,7 +213,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
         nextDueDate: editNextDueDate,
         dueTime: editDueTime,
       });
-      setEditingId(null);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
@@ -214,70 +227,94 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     (a, b) => Number(a.paused) - Number(b.paused) || a.nextDueDate.localeCompare(b.nextDueDate),
   );
 
-  return (
-    <>
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
-      </button>
-      <h1 className="sr-only">Tasks &amp; Reminders</h1>
-
-      <form onSubmit={handleSubmit} className="quick-add">
-        <label className="sr-only" htmlFor="task-title">
-          Title
-        </label>
-        <input
-          id="task-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Reminder title"
-          required
-          autoFocus
-        />
-        <label className="sr-only" htmlFor="task-description">
-          Description
-        </label>
-        <input
-          id="task-description"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Description (optional)"
-        />
-        <label className="sr-only" htmlFor="task-frequency">
-          Frequency
-        </label>
-        <select id="task-frequency" value={frequency} onChange={(event) => setFrequency(event.target.value as TaskFrequency)}>
-          {FREQUENCIES.map((f) => (
-            <option key={f.value} value={f.value}>
-              {f.label}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="task-due-date">
-          Next due date
-        </label>
-        <input
-          id="task-due-date"
-          type="date"
-          value={nextDueDate}
-          onChange={(event) => setNextDueDate(event.target.value)}
-          required
-        />
-        <label className="sr-only" htmlFor="task-due-time">
-          Time (optional, defaults to 9:30 AM)
-        </label>
-        <input id="task-due-time" type="time" value={dueTime} onChange={(event) => setDueTime(event.target.value)} />
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Add reminder"}
+  if (mode.kind === "add") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelAdd}>
+          ← Tasks &amp; Reminders
         </button>
-      </form>
+        <h1 className="sr-only">Add reminder</h1>
+        <form onSubmit={handleSubmit} className="edit-panel">
+          <p className="edit-panel-title">Add reminder</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Title</span>
+              <input
+                className="input-compact"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+                autoFocus
+              />
+            </label>
+            <label className="edit-field">
+              <span>Description</span>
+              <input
+                className="input-compact"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Frequency</span>
+              <select
+                className="input-compact"
+                value={frequency}
+                onChange={(event) => setFrequency(event.target.value as TaskFrequency)}
+              >
+                {FREQUENCIES.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="edit-field">
+              <span>Next due date</span>
+              <input
+                type="date"
+                className="input-compact"
+                value={nextDueDate}
+                onChange={(event) => setNextDueDate(event.target.value)}
+                required
+              />
+            </label>
+            <label className="edit-field">
+              <span>Time</span>
+              <input
+                type="time"
+                className="input-compact"
+                value={dueTime}
+                onChange={(event) => setDueTime(event.target.value)}
+              />
+            </label>
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : "Add reminder"}
+            </button>
+            <button type="button" onClick={cancelAdd} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {editingId !== null && (
+  if (mode.kind === "edit") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelEdit}>
+          ← Tasks &amp; Reminders
+        </button>
+        <h1 className="sr-only">Editing {editTitle || "reminder"}</h1>
         <div className="edit-panel">
           <p className="edit-panel-title">Editing "{editTitle || "…"}"</p>
           <div className="edit-row">
@@ -332,7 +369,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
             </p>
           )}
           <div className="row-actions">
-            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+            <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
               {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
@@ -340,6 +377,27 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
+      <h1 className="sr-only">Tasks &amp; Reminders</h1>
+
+      <div className="row-actions">
+        <button type="button" onClick={startAdd}>
+          + Add reminder
+        </button>
+      </div>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
 
       {loading ? (

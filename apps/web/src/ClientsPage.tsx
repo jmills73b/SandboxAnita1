@@ -41,11 +41,15 @@ function CategoryChips({
   );
 }
 
+type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+
 export function ClientsPage({ onBack }: { onBack: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
   const [categories, setCategories] = useState<ClientCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -53,7 +57,6 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editSummary, setEditSummary] = useState("");
@@ -91,6 +94,20 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     setEditCategoryIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
   }
 
+  function startAdd() {
+    setName("");
+    setEmail("");
+    setSummary("");
+    setCategoryIds([]);
+    setError(null);
+    setMode({ kind: "add" });
+  }
+
+  function cancelAdd() {
+    setError(null);
+    setMode({ kind: "list" });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -109,10 +126,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         summary: summary.trim() || null,
         categoryIds,
       });
-      setName("");
-      setEmail("");
-      setSummary("");
-      setCategoryIds([]);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that client");
@@ -122,17 +136,17 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
   }
 
   function startEdit(client: Client) {
-    setEditingId(client.id);
     setEditName(client.name);
     setEditEmail(client.email ?? "");
     setEditSummary(client.summary ?? "");
     setEditCategoryIds(client.categories.map((c) => c.id));
     setEditError(null);
+    setMode({ kind: "edit", id: client.id });
   }
 
   function cancelEdit() {
-    setEditingId(null);
     setEditError(null);
+    setMode({ kind: "list" });
   }
 
   async function saveEdit(id: number) {
@@ -151,7 +165,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         summary: editSummary.trim() || null,
         categoryIds: editCategoryIds,
       });
-      setEditingId(null);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
@@ -168,68 +182,73 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         (client.email ?? "").toLowerCase().includes(trimmedSearch)),
   );
 
-  return (
-    <>
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
-      </button>
-      <h1 className="sr-only">Clients</h1>
-
-      <form onSubmit={handleSubmit} className="quick-add">
-        <label className="sr-only" htmlFor="client-name">
-          Name
-        </label>
-        <input
-          id="client-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Client name"
-          required
-          autoFocus
-        />
-        <label className="sr-only" htmlFor="client-email">
-          Email
-        </label>
-        <input
-          id="client-email"
-          type="email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="Email (optional)"
-        />
-        <label className="sr-only" htmlFor="client-summary">
-          Summary
-        </label>
-        <input
-          id="client-summary"
-          value={summary}
-          onChange={(event) => setSummary(event.target.value)}
-          placeholder="Summary (optional)"
-        />
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Add client"}
+  if (mode.kind === "add") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelAdd}>
+          ← Clients
         </button>
-      </form>
-      <div className="edit-field quick-add-category">
-        <span>Category</span>
-        <CategoryChips categories={categories} selectedIds={categoryIds} onToggle={toggleCategory} />
-      </div>
+        <h1 className="sr-only">Add client</h1>
+        <form onSubmit={handleSubmit} className="edit-panel">
+          <p className="edit-panel-title">Add client</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Name</span>
+              <input
+                className="input-compact"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                autoFocus
+              />
+            </label>
+            <label className="edit-field">
+              <span>Email</span>
+              <input
+                type="email"
+                className="input-compact"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+              />
+            </label>
+            <label className="edit-field">
+              <span>Summary</span>
+              <input
+                className="input-compact"
+                value={summary}
+                onChange={(event) => setSummary(event.target.value)}
+              />
+            </label>
+          </div>
+          <div className="edit-field">
+            <span>Category</span>
+            <CategoryChips categories={categories} selectedIds={categoryIds} onToggle={toggleCategory} />
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : "Add client"}
+            </button>
+            <button type="button" onClick={cancelAdd} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {notesClient && (
-        <ClientNotesPanel
-          clientId={notesClient.id}
-          clientName={notesClient.name}
-          onClose={() => setNotesClient(null)}
-        />
-      )}
-
-      {editingId !== null && (
+  if (mode.kind === "edit") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelEdit}>
+          ← Clients
+        </button>
+        <h1 className="sr-only">Editing {editName || "client"}</h1>
         <div className="edit-panel">
           <p className="edit-panel-title">Editing "{editName || "…"}"</p>
           <div className="edit-row">
@@ -265,7 +284,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
             </p>
           )}
           <div className="row-actions">
-            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+            <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
               {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
@@ -273,6 +292,35 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
+      <h1 className="sr-only">Clients</h1>
+
+      <div className="row-actions">
+        <button type="button" onClick={startAdd}>
+          + Add client
+        </button>
+      </div>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {notesClient && (
+        <ClientNotesPanel
+          clientId={notesClient.id}
+          clientName={notesClient.name}
+          onClose={() => setNotesClient(null)}
+        />
       )}
 
       {clients.length > 0 && (
@@ -325,7 +373,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
             </thead>
             <tbody>
               {filteredClients.map((client) => (
-                <tr key={client.id} className={editingId === client.id ? "row-editing" : undefined}>
+                <tr key={client.id}>
                   <td>{client.name}</td>
                   <td>{client.email ?? "—"}</td>
                   <td>{client.summary ? truncate(client.summary, 60) : "—"}</td>
@@ -361,4 +409,3 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     </>
   );
 }
-
