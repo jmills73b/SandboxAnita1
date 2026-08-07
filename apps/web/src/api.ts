@@ -340,6 +340,7 @@ export function deleteExpense(id: number): Promise<{ ok: boolean }> {
 
 export interface AccountSettings {
   inviteCode: string;
+  disabledFeatures: string[];
 }
 
 export function getAccountSettings(): Promise<AccountSettings> {
@@ -348,6 +349,10 @@ export function getAccountSettings(): Promise<AccountSettings> {
 
 export function updateAccountSettings(inviteCode: string): Promise<AccountSettings> {
   return request("/api/account-settings", { method: "PUT", body: JSON.stringify({ inviteCode }) });
+}
+
+export function updateDisabledFeatures(disabledFeatures: string[]): Promise<{ disabledFeatures: string[] }> {
+  return request("/api/account-settings/features", { method: "PUT", body: JSON.stringify({ disabledFeatures }) });
 }
 
 export interface TimeSettings {

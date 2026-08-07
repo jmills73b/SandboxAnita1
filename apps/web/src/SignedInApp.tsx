@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getTasks, logout } from "./api";
+import { getAccountSettings, getTasks, logout } from "./api";
 import { AdminPage } from "./AdminPage";
 import { ClientsPage } from "./ClientsPage";
 import { Dashboard, type DashboardTile } from "./Dashboard";
@@ -30,7 +30,9 @@ export function SignedInApp({
   const [screen, setScreen] = useState<Screen>({ kind: "hub" });
   const [showTasks, setShowTasks] = useState(false);
   const [dueTaskCount, setDueTaskCount] = useState(0);
+  const [disabledFeatures, setDisabledFeatures] = useState<string[]>([]);
   const goHome = () => setScreen({ kind: "hub" });
+  const tasksDisabled = disabledFeatures.includes("tasks");
 
   async function refreshDueTaskCount() {
     try {
@@ -44,8 +46,26 @@ export function SignedInApp({
   }
 
   useEffect(() => {
-    refreshDueTaskCount();
-  }, [screen.kind]);
+    if (!tasksDisabled) refreshDueTaskCount();
+  }, [screen.kind, tasksDisabled]);
+
+  useEffect(() => {
+    getAccountSettings()
+      .then((settings) => setDisabledFeatures(settings.disabledFeatures))
+      .catch(() => {
+        // Nothing to disable is the safe default — leave every tile visible
+        // rather than surfacing an error banner for a background lookup.
+      });
+  }, []);
+
+  // A screen that was open when an admin (elsewhere, or in this same
+  // session) disables its feature shouldn't stay reachable just because
+  // local state still points at it.
+  useEffect(() => {
+    if (screen.kind !== "hub" && disabledFeatures.includes(screen.kind)) {
+      goHome();
+    }
+  }, [disabledFeatures]);
 
   return (
     <main className="page">
@@ -55,21 +75,23 @@ export function SignedInApp({
           <span className="who">{email}</span>
           <div className="page-header-buttons">
             <ThemeQuickSwitch />
-            <button
-              type="button"
-              className="secondary task-badge-button"
-              onClick={() => setShowTasks((prev) => !prev)}
-            >
-              Tasks
-              {dueTaskCount > 0 && <span className="task-badge">{dueTaskCount}</span>}
-            </button>
+            {!tasksDisabled && (
+              <button
+                type="button"
+                className="secondary task-badge-button"
+                onClick={() => setShowTasks((prev) => !prev)}
+              >
+                Tasks
+                {dueTaskCount > 0 && <span className="task-badge">{dueTaskCount}</span>}
+              </button>
+            )}
             <button type="button" className="secondary" onClick={() => logout().then(onLoggedOut)}>
               Sign out
             </button>
           </div>
         </div>
       </header>
-      {showTasks && (
+      {showTasks && !tasksDisabled && (
         <TaskSummaryPanel
           onClose={() => {
             setShowTasks(false);
@@ -77,7 +99,9 @@ export function SignedInApp({
           }}
         />
       )}
-      {screen.kind === "hub" && <Dashboard onSelect={(tile) => setScreen({ kind: tile })} />}
+      {screen.kind === "hub" && (
+        <Dashboard onSelect={(tile) => setScreen({ kind: tile })} disabledFeatures={disabledFeatures} />
+      )}
       {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
       {screen.kind === "invoice-generator" && <InvoiceGeneratorPage onBack={goHome} />}
@@ -86,7 +110,7 @@ export function SignedInApp({
       {screen.kind === "time" && <TimeKeepingPage onBack={goHome} />}
       {screen.kind === "clients" && <ClientsPage onBack={goHome} />}
       {screen.kind === "tasks" && <TasksPage onBack={goHome} />}
-      {screen.kind === "admin" && <AdminPage onBack={goHome} />}
+      {screen.kind === "admin" && <AdminPage onBack={goHome} onDisabledFeaturesChange={setDisabledFeatures} />}
     </main>
   );
 }

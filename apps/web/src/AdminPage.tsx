@@ -28,6 +28,7 @@ import {
 } from "./api";
 import { AppearanceManager } from "./AppearanceManager";
 import { ClientCategoryManager } from "./ClientCategoryManager";
+import { FeatureManager } from "./FeatureManager";
 import { ExpenseCategoryManager } from "./ExpenseCategoryManager";
 import { TimeCategoryManager } from "./TimeCategoryManager";
 import { TimeRateManager } from "./TimeRateManager";
@@ -40,7 +41,7 @@ import { UsagePanel } from "./UsagePanel";
 type Section = "categories" | "billing" | "account";
 type CategoriesTab = "clients" | "expenses" | "time" | "notes";
 type BillingTab = "rates" | "invoice" | "tax";
-type AccountTab = "invite" | "export" | "usage" | "appearance";
+type AccountTab = "invite" | "export" | "usage" | "appearance" | "features";
 
 const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: "categories", label: "Categories" },
@@ -66,9 +67,16 @@ const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
   { key: "export", label: "Export data" },
   { key: "usage", label: "Usage" },
   { key: "appearance", label: "Appearance" },
+  { key: "features", label: "Features" },
 ];
 
-export function AdminPage({ onBack }: { onBack: () => void }) {
+export function AdminPage({
+  onBack,
+  onDisabledFeaturesChange,
+}: {
+  onBack: () => void;
+  onDisabledFeaturesChange: (disabledFeatures: string[]) => void;
+}) {
   const [section, setSection] = useState<Section>("categories");
   const [categoriesTab, setCategoriesTab] = useState<CategoriesTab>("clients");
   const [billingTab, setBillingTab] = useState<BillingTab>("rates");
@@ -161,6 +169,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
               {accountTab === "export" && <ExportDataTab />}
               {accountTab === "usage" && <UsagePanel />}
               {accountTab === "appearance" && <AppearanceManager />}
+              {accountTab === "features" && <FeatureManager onChanged={onDisabledFeaturesChange} />}
             </>
           )}
         </div>

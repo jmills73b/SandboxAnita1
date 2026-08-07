@@ -57,12 +57,20 @@ const TILES = [
 
 export type DashboardTile = (typeof TILES)[number]["key"];
 
-export function Dashboard({ onSelect }: { onSelect: (tile: DashboardTile) => void }) {
+export function Dashboard({
+  onSelect,
+  disabledFeatures = [],
+}: {
+  onSelect: (tile: DashboardTile) => void;
+  disabledFeatures?: string[];
+}) {
+  const visibleTiles = TILES.filter((tile) => !disabledFeatures.includes(tile.key));
+
   return (
     <>
       <h1 className="sr-only">Dashboard</h1>
       <div className="hero-grid">
-        {TILES.map((tile) =>
+        {visibleTiles.map((tile) =>
           tile.active ? (
             <button
               key={tile.key}

@@ -713,6 +713,40 @@ button.client-link:hover {
   margin: 12px 0 0;
 }
 
+.feature-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.feature-row:last-child {
+  border-bottom: none;
+}
+
+.feature-row-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.feature-row-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 0;
+}
+
+.feature-row-name {
+  font-size: 14px;
+}
+
+.feature-row-desc {
+  margin: 4px 0 0 26px;
+  font-size: 12.5px;
+  color: var(--ink-faint);
+}
+
 /* Admin & Settings — a left rail of top-level sections (Categories,
    Billing, Account), each with its own row of sub-tabs, rather than the
    category/settings managers this replaced scattering across every page. */
