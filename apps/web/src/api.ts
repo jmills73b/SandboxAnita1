@@ -403,6 +403,10 @@ export function addHourlyRate(rate: number, startDate: string): Promise<HourlyRa
   return request("/api/hourly-rates", { method: "POST", body: JSON.stringify({ rate, startDate }) });
 }
 
+export function updateHourlyRate(id: number, rate: number): Promise<HourlyRate & { entriesUpdated: number }> {
+  return request(`/api/hourly-rates/${id}`, { method: "PATCH", body: JSON.stringify({ rate }) });
+}
+
 export interface TimeEntry {
   id: number;
   clientId: number;

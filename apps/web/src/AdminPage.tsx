@@ -311,6 +311,10 @@ function HourlyRatesTab() {
   const [rates, setRates] = useState<HourlyRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Owned here, not inside TimeRateManager: refresh() below remounts that
+  // component (it's replaced by the "Loading…" branch while in flight), so
+  // any message it set on itself would be wiped before it's ever seen.
+  const [rateMessage, setRateMessage] = useState<string | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -336,7 +340,15 @@ function HourlyRatesTab() {
     </p>
   );
   if (!settings) return null;
-  return <TimeRateManager settings={settings} rates={rates} onChanged={refresh} />;
+  return (
+    <TimeRateManager
+      settings={settings}
+      rates={rates}
+      onChanged={refresh}
+      rateMessage={rateMessage}
+      onRateMessage={setRateMessage}
+    />
+  );
 }
 
 function InvoiceSettingsTab() {

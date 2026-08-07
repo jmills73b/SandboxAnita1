@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { addHourlyRate, updateTimeSettings, type HourlyRate, type TimeSettings } from "./api";
+import { addHourlyRate, updateHourlyRate, updateTimeSettings, type HourlyRate, type TimeSettings } from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 
@@ -15,10 +15,14 @@ export function TimeRateManager({
   settings,
   rates,
   onChanged,
+  rateMessage,
+  onRateMessage,
 }: {
   settings: TimeSettings;
   rates: HourlyRate[];
   onChanged: () => Promise<void>;
+  rateMessage: string | null;
+  onRateMessage: (message: string | null) => void;
 }) {
   const [unitMinutes, setUnitMinutes] = useState(String(settings.unitMinutes));
   const [savingUnit, setSavingUnit] = useState(false);
@@ -28,6 +32,11 @@ export function TimeRateManager({
   const [newStartDate, setNewStartDate] = useState(today());
   const [addingRate, setAddingRate] = useState(false);
   const [rateError, setRateError] = useState<string | null>(null);
+
+  const [editingRateId, setEditingRateId] = useState<number | null>(null);
+  const [editRateValue, setEditRateValue] = useState("");
+  const [editRateSaving, setEditRateSaving] = useState(false);
+  const [editRateError, setEditRateError] = useState<string | null>(null);
 
   async function handleSaveUnit(event: FormEvent) {
     event.preventDefault();
@@ -70,6 +79,43 @@ export function TimeRateManager({
     }
   }
 
+  function startEditRate(rate: HourlyRate) {
+    setEditingRateId(rate.id);
+    setEditRateValue(String(rate.rate));
+    setEditRateError(null);
+    onRateMessage(null);
+  }
+
+  function cancelEditRate() {
+    setEditingRateId(null);
+    setEditRateError(null);
+  }
+
+  async function handleSaveRate(id: number) {
+    setEditRateError(null);
+    const value = Number(editRateValue);
+    if (!Number.isFinite(value) || value <= 0) {
+      setEditRateError("Enter an hourly rate greater than £0");
+      return;
+    }
+
+    setEditRateSaving(true);
+    try {
+      const result = await updateHourlyRate(id, value);
+      setEditingRateId(null);
+      onRateMessage(
+        result.entriesUpdated > 0
+          ? `Rate updated — recalculated ${result.entriesUpdated} time ${result.entriesUpdated === 1 ? "entry" : "entries"}.`
+          : "Rate updated.",
+      );
+      await onChanged();
+    } catch (err) {
+      setEditRateError(err instanceof Error ? err.message : "Couldn't save that rate");
+    } finally {
+      setEditRateSaving(false);
+    }
+  }
+
   return (
     <div>
       <p className="settings-section-title">Billing unit size</p>
@@ -106,19 +152,65 @@ export function TimeRateManager({
               <th>Rate</th>
               <th>From</th>
               <th>To</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {rates.map((rate) => (
-              <tr key={rate.id}>
-                <td>{money.format(rate.rate)}/hr</td>
-                <td>{rate.startDate}</td>
-                <td>{rate.endDate ?? "Current"}</td>
-              </tr>
-            ))}
+            {rates.map((rate) =>
+              editingRateId === rate.id ? (
+                <tr key={rate.id}>
+                  <td>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.01"
+                      min="0.01"
+                      className="input-compact"
+                      value={editRateValue}
+                      onChange={(event) => setEditRateValue(event.target.value)}
+                      autoFocus
+                    />
+                  </td>
+                  <td>{rate.startDate}</td>
+                  <td>{rate.endDate ?? "Current"}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button type="button" onClick={() => handleSaveRate(rate.id)} disabled={editRateSaving}>
+                        {editRateSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={cancelEditRate}
+                        disabled={editRateSaving}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                <tr key={rate.id}>
+                  <td>{money.format(rate.rate)}/hr</td>
+                  <td>{rate.startDate}</td>
+                  <td>{rate.endDate ?? "Current"}</td>
+                  <td>
+                    <button type="button" className="secondary" onClick={() => startEditRate(rate)}>
+                      Edit
+                    </button>
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       )}
+      {editRateError && (
+        <p className="error" role="alert">
+          {editRateError}
+        </p>
+      )}
+      {rateMessage && <p className="hint">{rateMessage}</p>}
 
       <form onSubmit={handleAddRate} className="edit-row">
         <label className="edit-field">

@@ -86,4 +86,43 @@ hourlyRates.post("/", async (c) => {
   return c.json(toRate(created), 201);
 });
 
+// Corrects a rate's value in place (its date range is untouched — adding a
+// new row already covers a genuine rate change). Since time entries
+// snapshot the rate that applied on their date, a correction here has to
+// retroactively fix every entry dated within this rate's range, or those
+// entries would stay stuck showing whatever figure the mistake produced.
+hourlyRates.patch("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ error: "Invalid rate id" }, 400);
+  }
+
+  const { rate } = await c.req.json<{ rate?: number }>();
+  if (typeof rate !== "number" || rate <= 0) {
+    return c.json({ error: "Enter an hourly rate greater than £0" }, 400);
+  }
+
+  const existing = await c.env.DB.prepare("SELECT id, start_date, end_date FROM hourly_rates WHERE id = ?")
+    .bind(id)
+    .first<{ id: number; start_date: string; end_date: string | null }>();
+  if (!existing) {
+    return c.json({ error: "Rate not found" }, 404);
+  }
+
+  await c.env.DB.prepare("UPDATE hourly_rates SET rate = ? WHERE id = ?").bind(rate, id).run();
+
+  const result = await c.env.DB.prepare(
+    `UPDATE time_entries SET rate_at_entry = ?
+     WHERE date >= ? AND (? IS NULL OR date <= ?)`,
+  )
+    .bind(rate, existing.start_date, existing.end_date, existing.end_date)
+    .run();
+
+  const updated = await c.env.DB.prepare("SELECT id, rate, start_date, end_date FROM hourly_rates WHERE id = ?")
+    .bind(id)
+    .first<RateRow>();
+
+  return c.json({ ...toRate(updated!), entriesUpdated: result.meta.changes ?? 0 });
+});
+
 export default hourlyRates;
