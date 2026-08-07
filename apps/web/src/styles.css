@@ -1337,6 +1337,13 @@ button.secondary {
   opacity: 0.6;
 }
 
+/* Unlike a note card, a task card has no .note-card-summary header to
+   supply top padding via its own padding-box — it goes straight to
+   .note-card-body, which otherwise sits flush against the card's top edge. */
+.task-card > .note-card-body {
+  padding-top: 14px;
+}
+
 .task-title {
   color: var(--ink);
   font-weight: 500;
