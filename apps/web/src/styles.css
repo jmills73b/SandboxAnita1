@@ -586,6 +586,7 @@ button.client-link:hover {
 
 .row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -1558,7 +1559,7 @@ button.secondary {
    / Coming soon / Paused, each its own labeled block rather than one long
    undifferentiated list. */
 .task-urgency-group {
-  margin-bottom: 28px;
+  margin-bottom: 36px;
 }
 
 .task-urgency-group:last-child {
@@ -1572,7 +1573,7 @@ button.secondary {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--ink-faint);
-  margin: 0 0 10px;
+  margin: 0 0 14px;
 }
 
 .task-urgency-heading.urgency-late {
