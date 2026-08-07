@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { getStoredTheme, setTheme, type Theme } from "./theme";
+import { useEffect, useState } from "react";
+import { getStoredTheme, onThemeChange, setTheme, type Theme } from "./theme";
 
 // Plain line icons rather than native emoji — emoji render in their own
 // fixed colours (a yellow sun/moon) regardless of the button's state, so
@@ -49,6 +49,8 @@ const OPTIONS: Array<{ value: Theme; icon: () => JSX.Element; label: string }> =
 
 export function ThemeQuickSwitch() {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme() ?? "light");
+
+  useEffect(() => onThemeChange(setThemeState), []);
 
   function choose(value: Theme) {
     setTheme(value);

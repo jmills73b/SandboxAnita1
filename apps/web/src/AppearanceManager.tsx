@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { getStoredTheme, setTheme, type Theme } from "./theme";
+import { useEffect, useState } from "react";
+import { getStoredTheme, onThemeChange, setTheme, type Theme } from "./theme";
 
 const OPTIONS: Array<{ value: Theme; label: string; desc: string }> = [
   { value: "light", label: "Light", desc: "Warm paper, near-black ink. The default." },
@@ -9,6 +9,8 @@ const OPTIONS: Array<{ value: Theme; label: string; desc: string }> = [
 
 export function AppearanceManager() {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme() ?? "light");
+
+  useEffect(() => onThemeChange(setThemeState), []);
 
   function choose(value: Theme) {
     setTheme(value);

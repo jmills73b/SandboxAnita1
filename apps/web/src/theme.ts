@@ -1,6 +1,7 @@
 export type Theme = "light" | "dark" | "feelgood";
 
 const STORAGE_KEY = "acm-theme";
+const THEME_EVENT = "acm-theme-change";
 
 const THEMES: Theme[] = ["light", "dark", "feelgood"];
 
@@ -23,4 +24,17 @@ export function applyTheme(theme: Theme | null): void {
 export function setTheme(theme: Theme): void {
   localStorage.setItem(STORAGE_KEY, theme);
   applyTheme(theme);
+  window.dispatchEvent(new CustomEvent(THEME_EVENT, { detail: theme }));
+}
+
+// The header's icon-only switcher and the full picker in Admin & Settings
+// are two separately-mounted components, each tracking the active theme in
+// its own local state. Without this, changing the theme in one leaves the
+// other showing a stale "active" highlight until it happens to remount.
+export function onThemeChange(listener: (theme: Theme) => void): () => void {
+  function handleThemeEvent(event: Event) {
+    listener((event as CustomEvent<Theme>).detail);
+  }
+  window.addEventListener(THEME_EVENT, handleThemeEvent);
+  return () => window.removeEventListener(THEME_EVENT, handleThemeEvent);
 }
