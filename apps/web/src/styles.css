@@ -1266,6 +1266,136 @@ button.secondary {
   margin: 10px 0 0;
 }
 
+/* Year-over-year comparison chart — a multi-line "emphasis" chart: the
+   current tax year in full ink, prior years fading toward --ink-faint, so
+   the reader's eye lands on this year first without a separate accent
+   color the rest of the app doesn't otherwise use. */
+.yoy-section {
+  margin-top: 32px;
+}
+
+.yoy-chart-wrap {
+  margin-top: 4px;
+}
+
+.yoy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.yoy-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.yoy-legend-swatch {
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.yoy-chart-svg-wrap {
+  position: relative;
+}
+
+.yoy-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.yoy-gridline {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.yoy-axis-label {
+  font-size: 10px;
+  fill: var(--ink-faint);
+  font-family: var(--sans);
+}
+
+.yoy-area {
+  fill: var(--ink);
+  opacity: 0.08;
+}
+
+.yoy-dot-ring {
+  fill: var(--paper);
+}
+
+.yoy-end-label {
+  font-size: 11px;
+  fill: var(--ink-soft);
+  font-family: var(--sans);
+}
+
+.yoy-crosshair {
+  stroke: var(--ink-faint);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.yoy-tooltip {
+  position: absolute;
+  top: 4px;
+  transform: translateX(8px);
+  background: var(--paper-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 8px 10px;
+  min-width: 130px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.yoy-tooltip-month {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  margin: 0 0 6px;
+}
+
+.yoy-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+
+.yoy-tooltip-row:last-child {
+  margin-bottom: 0;
+}
+
+.yoy-tooltip-key {
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.yoy-tooltip-label {
+  color: var(--ink-soft);
+  flex: 1;
+}
+
+.yoy-tooltip-value {
+  color: var(--ink);
+}
+
+.yoy-summary-table {
+  margin-top: 16px;
+}
+
 /* Dashboard hub — auto-fit rather than a fixed 2 columns, so wider
    screens (where .page itself now grows, see above) reflow into 3-4
    narrower tiles instead of just stretching two of them very wide. */
