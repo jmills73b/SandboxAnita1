@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { addClient, getClientCategories, getClients, updateClient, type Client, type ClientCategory } from "./api";
-import { ClientNotesPanel } from "./ClientNotesPanel";
+import { ClientNotesPage } from "./ClientNotesPage";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 
 function truncate(text: string, max: number): string {
@@ -42,7 +42,7 @@ function CategoryChips({
   );
 }
 
-type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "notes"; id: number };
 
 export function ClientsPage({ onBack }: { onBack: () => void }) {
   const [clients, setClients] = useState<Client[]>([]);
@@ -67,8 +67,6 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-
-  const [notesClient, setNotesClient] = useState<Client | null>(null);
 
   const summaryRef = useRef<HTMLTextAreaElement>(null);
   const editSummaryRef = useRef<HTMLTextAreaElement>(null);
@@ -308,6 +306,17 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     );
   }
 
+  if (mode.kind === "notes") {
+    const notesClient = clients.find((c) => c.id === mode.id);
+    return (
+      <ClientNotesPage
+        clientId={mode.id}
+        clientName={notesClient?.name ?? "…"}
+        onBack={() => setMode({ kind: "list" })}
+      />
+    );
+  }
+
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
@@ -325,14 +334,6 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         <p className="error" role="alert">
           {error}
         </p>
-      )}
-
-      {notesClient && (
-        <ClientNotesPanel
-          clientId={notesClient.id}
-          clientName={notesClient.name}
-          onClose={() => setNotesClient(null)}
-        />
       )}
 
       {clients.length > 0 && (
@@ -407,7 +408,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                       <button type="button" onClick={() => startEdit(client)}>
                         Edit
                       </button>
-                      <button type="button" className="secondary" onClick={() => setNotesClient(client)}>
+                      <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
                         Notes
                       </button>
                     </div>
