@@ -792,15 +792,23 @@ button.client-link:hover {
   min-width: 0;
 }
 
+/* Horizontally scrolling, not wrapping — a wrapped tab lands between two
+   borders (this row's own bottom border, then the next section's), and
+   reads as a stray label rather than one of the tabs above it. Same
+   pattern as .admin-rail's mobile treatment. */
 .subtabs {
   display: flex;
   gap: 18px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   margin-bottom: 20px;
+  padding-bottom: 1px;
   border-bottom: 1px solid var(--line);
 }
 
 .subtab {
+  flex: none;
+  white-space: nowrap;
   margin-bottom: -1px;
   padding: 0 0 10px;
   border: none;
