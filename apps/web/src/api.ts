@@ -557,6 +557,7 @@ export type TaskFrequency =
   | "quarterly"
   | "yearly";
 export type TaskAction = "completed" | "skipped" | "not_needed";
+export type TaskStatus = "active" | "paused" | "done";
 
 export interface TaskOccurrence {
   id: number;
@@ -570,9 +571,11 @@ export interface Task {
   title: string;
   description: string | null;
   frequency: TaskFrequency;
+  daysOfWeek: number[] | null;
   nextDueDate: string;
   dueTime: string;
-  paused: boolean;
+  status: TaskStatus;
+  completedAt: string | null;
   createdAt: string;
   clientId: number | null;
   clientName: string | null;
@@ -594,6 +597,7 @@ export function addTask(input: {
   title: string;
   description?: string | null;
   frequency: TaskFrequency;
+  daysOfWeek?: number[] | null;
   nextDueDate: string;
   dueTime?: string;
   clientId?: number | null;
@@ -607,9 +611,10 @@ export function updateTask(
     title: string;
     description: string | null;
     frequency: TaskFrequency;
+    daysOfWeek: number[] | null;
     nextDueDate: string;
     dueTime: string;
-    paused: boolean;
+    status: Exclude<TaskStatus, "done">;
     clientId: number | null;
   }>,
 ): Promise<TaskDetail> {

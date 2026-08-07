@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isValidTaskFrequency, nextDueDate } from "./taskRecurrence";
+import {
+  firstMatchingWeekday,
+  formatDaysOfWeek,
+  isValidTaskFrequency,
+  nextDueDate,
+  parseDaysOfWeek,
+} from "./taskRecurrence";
 
 describe("isValidTaskFrequency", () => {
   it("accepts the known frequencies", () => {
@@ -58,5 +64,62 @@ describe("nextDueDate", () => {
 
   it("clamps a leap-day yearly task in a non-leap target year", () => {
     expect(nextDueDate("2028-02-29", "yearly")).toBe("2029-02-28");
+  });
+
+  it("without daysOfWeek, daily still just adds a day (unrestricted)", () => {
+    expect(nextDueDate("2026-08-08", "daily", null)).toBe("2026-08-09");
+  });
+
+  it("restricts a daily reminder to the given weekdays — Saturday to the very next day when it's also selected", () => {
+    // 2026-08-08 is a Saturday, 2026-08-09 a Sunday — both selected, so it
+    // advances to the very next day.
+    expect(nextDueDate("2026-08-08", "daily", [0, 6])).toBe("2026-08-09");
+  });
+
+  it("restricts a daily reminder to the given weekdays — skips the weekdays in between", () => {
+    // 2026-08-09 is a Sunday; the next Saturday is 2026-08-15, skipping
+    // Mon-Fri entirely.
+    expect(nextDueDate("2026-08-09", "daily", [0, 6])).toBe("2026-08-15");
+  });
+
+  it("ignores an empty daysOfWeek for daily (same as unrestricted)", () => {
+    expect(nextDueDate("2026-08-08", "daily", [])).toBe("2026-08-09");
+  });
+});
+
+describe("firstMatchingWeekday", () => {
+  it("returns the same date when it already matches", () => {
+    // 2026-08-06 is a Thursday.
+    expect(firstMatchingWeekday("2026-08-06", [4])).toBe("2026-08-06");
+  });
+
+  it("advances to the next matching weekday otherwise", () => {
+    // 2026-08-10 is a Monday; the next Thursday is 2026-08-13.
+    expect(firstMatchingWeekday("2026-08-10", [4])).toBe("2026-08-13");
+  });
+});
+
+describe("parseDaysOfWeek / formatDaysOfWeek", () => {
+  it("round-trips a set of days", () => {
+    expect(parseDaysOfWeek(formatDaysOfWeek([6, 0]))).toEqual([0, 6]);
+  });
+
+  it("parses null/empty as null", () => {
+    expect(parseDaysOfWeek(null)).toBeNull();
+    expect(parseDaysOfWeek("")).toBeNull();
+  });
+
+  it("formats null/empty/undefined as null", () => {
+    expect(formatDaysOfWeek(null)).toBeNull();
+    expect(formatDaysOfWeek(undefined)).toBeNull();
+    expect(formatDaysOfWeek([])).toBeNull();
+  });
+
+  it("de-duplicates and sorts when formatting", () => {
+    expect(formatDaysOfWeek([3, 1, 3])).toBe("1,3");
+  });
+
+  it("drops out-of-range values when parsing", () => {
+    expect(parseDaysOfWeek("2,9,-1,5")).toEqual([2, 5]);
   });
 });

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { isValidTaskFrequency, nextDueDate, type TaskFrequency } from "@sandboxanita1/core";
+import { formatDaysOfWeek, isValidTaskFrequency, nextDueDate, parseDaysOfWeek, type TaskFrequency } from "@sandboxanita1/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 
@@ -14,6 +14,16 @@ function isValidAction(action: string): action is TaskAction {
   return (ACTIONS as readonly string[]).includes(action);
 }
 
+// "done" is a terminal state reached only via the /actions endpoint (it
+// always comes with a logged occurrence explaining how the task finished)
+// — a plain PATCH can only toggle between being live and being silenced.
+const PATCHABLE_STATUSES = ["active", "paused"] as const;
+type PatchableStatus = (typeof PATCHABLE_STATUSES)[number];
+
+function isValidPatchableStatus(value: string): value is PatchableStatus {
+  return (PATCHABLE_STATUSES as readonly string[]).includes(value);
+}
+
 // There's no background notifier in this app — a due time is shown
 // alongside the date, not something that triggers anything, so it
 // defaults to a sensible time rather than being left blank when nobody
@@ -25,14 +35,20 @@ function isValidTimeOfDay(value: string): boolean {
   return TIME_RE.test(value);
 }
 
+function isValidDaysOfWeek(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((n) => Number.isInteger(n) && n >= 0 && n <= 6);
+}
+
 interface TaskRow {
   id: number;
   title: string;
   description: string | null;
   frequency: TaskFrequency;
+  days_of_week: string | null;
   next_due_date: string;
   due_time: string;
-  paused: number;
+  status: "active" | "paused" | "done";
+  completed_at: string | null;
   created_at: string;
   client_id: number | null;
   client_name: string | null;
@@ -56,9 +72,11 @@ function toTask(row: TaskRow) {
     title: row.title,
     description: row.description,
     frequency: row.frequency,
+    daysOfWeek: parseDaysOfWeek(row.days_of_week),
     nextDueDate: row.next_due_date,
     dueTime: row.due_time,
-    paused: row.paused === 1,
+    status: row.status,
+    completedAt: row.completed_at,
     createdAt: row.created_at,
     clientId: row.client_id,
     clientName: row.client_name,
@@ -66,8 +84,8 @@ function toTask(row: TaskRow) {
 }
 
 const TASK_COLUMNS = `
-  tasks.id, tasks.title, tasks.description, tasks.frequency, tasks.next_due_date, tasks.due_time,
-  tasks.paused, tasks.created_at, tasks.client_id, clients.name AS client_name
+  tasks.id, tasks.title, tasks.description, tasks.frequency, tasks.days_of_week, tasks.next_due_date,
+  tasks.due_time, tasks.status, tasks.completed_at, tasks.created_at, tasks.client_id, clients.name AS client_name
 `;
 
 async function fetchTask(db: D1Database, id: number): Promise<TaskRow | null> {
@@ -90,7 +108,7 @@ async function fetchOccurrences(db: D1Database, taskId: number): Promise<Occurre
 tasks.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT ${TASK_COLUMNS} FROM tasks LEFT JOIN clients ON clients.id = tasks.client_id
-     ORDER BY tasks.paused, tasks.next_due_date, tasks.id`,
+     ORDER BY tasks.status, tasks.next_due_date, tasks.id`,
   ).all<TaskRow>();
 
   return c.json(results.map(toTask));
@@ -116,6 +134,7 @@ tasks.post("/", async (c) => {
     title?: string;
     description?: string | null;
     frequency?: string;
+    daysOfWeek?: number[] | null;
     nextDueDate?: string;
     dueTime?: string;
     clientId?: number | null;
@@ -128,18 +147,27 @@ tasks.post("/", async (c) => {
   if (!isValidTaskFrequency(body.frequency)) {
     return c.json({ error: "Invalid frequency" }, 400);
   }
+  if (body.daysOfWeek != null) {
+    if (!isValidDaysOfWeek(body.daysOfWeek)) {
+      return c.json({ error: "Invalid days of week" }, 400);
+    }
+    if (body.frequency !== "daily") {
+      return c.json({ error: "Days of week only apply to a daily reminder" }, 400);
+    }
+  }
   const trimmedDueTime = body.dueTime?.trim();
   if (trimmedDueTime && !isValidTimeOfDay(trimmedDueTime)) {
     return c.json({ error: "Invalid due time" }, 400);
   }
 
   const created = await c.env.DB.prepare(
-    "INSERT INTO tasks (title, description, frequency, next_due_date, due_time, client_id) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
+    "INSERT INTO tasks (title, description, frequency, days_of_week, next_due_date, due_time, client_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
   )
     .bind(
       title,
       body.description?.trim() || null,
       body.frequency,
+      formatDaysOfWeek(body.daysOfWeek),
       body.nextDueDate,
       trimmedDueTime || DEFAULT_DUE_TIME,
       body.clientId ?? null,
@@ -169,9 +197,10 @@ tasks.patch("/:id", async (c) => {
     title?: string;
     description?: string | null;
     frequency?: string;
+    daysOfWeek?: number[] | null;
     nextDueDate?: string;
     dueTime?: string;
-    paused?: boolean;
+    status?: string;
     clientId?: number | null;
   }>();
 
@@ -182,22 +211,30 @@ tasks.patch("/:id", async (c) => {
   if (body.frequency !== undefined && !isValidTaskFrequency(body.frequency)) {
     return c.json({ error: "Invalid frequency" }, 400);
   }
+  if (body.daysOfWeek != null && !isValidDaysOfWeek(body.daysOfWeek)) {
+    return c.json({ error: "Invalid days of week" }, 400);
+  }
   if (body.dueTime !== undefined && !isValidTimeOfDay(body.dueTime)) {
     return c.json({ error: "Invalid due time" }, 400);
+  }
+  if (body.status !== undefined && !isValidPatchableStatus(body.status)) {
+    return c.json({ error: "Invalid status" }, 400);
   }
 
   const title = trimmedTitle ?? existing.title;
   const description = body.description !== undefined ? body.description?.trim() || null : existing.description;
   const frequency = body.frequency ?? existing.frequency;
+  const daysOfWeek =
+    body.daysOfWeek !== undefined ? formatDaysOfWeek(body.daysOfWeek) : existing.days_of_week;
   const nextDueDateValue = body.nextDueDate ?? existing.next_due_date;
   const dueTime = body.dueTime ?? existing.due_time;
-  const paused = body.paused !== undefined ? (body.paused ? 1 : 0) : existing.paused;
+  const status = body.status ?? existing.status;
   const clientId = body.clientId !== undefined ? body.clientId : existing.client_id;
 
   await c.env.DB.prepare(
-    "UPDATE tasks SET title = ?, description = ?, frequency = ?, next_due_date = ?, due_time = ?, paused = ?, client_id = ? WHERE id = ?",
+    "UPDATE tasks SET title = ?, description = ?, frequency = ?, days_of_week = ?, next_due_date = ?, due_time = ?, status = ?, client_id = ? WHERE id = ?",
   )
-    .bind(title, description, frequency, nextDueDateValue, dueTime, paused, clientId, id)
+    .bind(title, description, frequency, daysOfWeek, nextDueDateValue, dueTime, status, clientId, id)
     .run();
 
   const updated = await fetchTask(c.env.DB, id);
@@ -209,8 +246,10 @@ tasks.patch("/:id", async (c) => {
 // and, for a recurring task, advances next_due_date from the due date
 // that was just actioned (not from today), so a weekly task stays on a
 // steady cadence rather than drifting later each time it's done a bit
-// late. A "once" task has no next occurrence, so it pauses itself instead
-// — the same flag a user would use to manually stop a recurring reminder.
+// late. A "once" task has no next occurrence, so it moves to 'done'
+// instead — a distinct terminal state from a manually paused recurring
+// task, so a finished one-off doesn't get lumped in with "silenced but
+// still pending" reminders.
 tasks.post("/:id/actions", async (c) => {
   const id = Number(c.req.param("id"));
   if (!Number.isInteger(id)) {
@@ -232,9 +271,11 @@ tasks.post("/:id/actions", async (c) => {
     .run();
 
   if (task.frequency === "once") {
-    await c.env.DB.prepare("UPDATE tasks SET paused = 1 WHERE id = ?").bind(id).run();
+    await c.env.DB.prepare("UPDATE tasks SET status = 'done', completed_at = datetime('now') WHERE id = ?")
+      .bind(id)
+      .run();
   } else {
-    const newDueDate = nextDueDate(task.next_due_date, task.frequency);
+    const newDueDate = nextDueDate(task.next_due_date, task.frequency, parseDaysOfWeek(task.days_of_week));
     await c.env.DB.prepare("UPDATE tasks SET next_due_date = ? WHERE id = ?").bind(newDueDate, id).run();
   }
 
