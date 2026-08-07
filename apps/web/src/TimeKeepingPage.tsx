@@ -30,6 +30,8 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${remaining}m`;
 }
 
+type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+
 export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -37,6 +39,8 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   const [settings, setSettings] = useState<TimeSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const [date, setDate] = useState(today());
   const [clientMode, setClientMode] = useState<ClientMode>("existing");
@@ -47,7 +51,6 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   const [categoryId, setCategoryId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editClientMode, setEditClientMode] = useState<ClientMode>("existing");
   const [editClientName, setEditClientName] = useState("");
@@ -91,6 +94,23 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
     return existing ? existing.id : (await addClient({ name: trimmed })).id;
   }
 
+  function startAdd() {
+    setDate(today());
+    setClientMode("existing");
+    setClientName("");
+    setMatter("");
+    setUnits("");
+    setDescription("");
+    setCategoryId("");
+    setError(null);
+    setMode({ kind: "add" });
+  }
+
+  function cancelAdd() {
+    setError(null);
+    setMode({ kind: "list" });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -123,10 +143,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
         description: trimmedDescription,
         categoryId: categoryId ? Number(categoryId) : null,
       });
-      setClientName("");
-      setMatter("");
-      setUnits("");
-      setDescription("");
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that time entry");
@@ -136,7 +153,6 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   }
 
   function startEdit(entry: TimeEntry) {
-    setEditingId(entry.id);
     setEditDate(entry.date);
     setEditClientMode("existing");
     setEditClientName(entry.clientName);
@@ -145,11 +161,12 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
     setEditDescription(entry.description);
     setEditCategoryId(entry.categoryId !== null ? String(entry.categoryId) : "");
     setEditError(null);
+    setMode({ kind: "edit", id: entry.id });
   }
 
   function cancelEdit() {
-    setEditingId(null);
     setEditError(null);
+    setMode({ kind: "list" });
   }
 
   async function saveEdit(id: number) {
@@ -183,7 +200,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
         description: trimmedDescription,
         categoryId: editCategoryId ? Number(editCategoryId) : null,
       });
-      setEditingId(null);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
@@ -218,87 +235,106 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   const previewUnits = Number(units);
   const showPreview = Number.isInteger(previewUnits) && previewUnits > 0;
 
-  return (
-    <>
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
-      </button>
-      <h1 className="sr-only">Time Keeping</h1>
-
-      <form onSubmit={handleSubmit} className="quick-add">
-        <label className="sr-only" htmlFor="time-date">
-          Date
-        </label>
-        <input id="time-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-        <ClientPicker
-          clients={clients}
-          mode={clientMode}
-          onModeChange={setClientMode}
-          name={clientName}
-          onNameChange={setClientName}
-          fieldId="time-client"
-        />
-        <label className="sr-only" htmlFor="time-matter">
-          Matter
-        </label>
-        <input
-          id="time-matter"
-          value={matter}
-          onChange={(event) => setMatter(event.target.value)}
-          placeholder="Matter (optional)"
-        />
-        <label className="sr-only" htmlFor="time-units">
-          Units
-        </label>
-        <input
-          id="time-units"
-          type="number"
-          inputMode="numeric"
-          step="1"
-          min="1"
-          value={units}
-          onChange={(event) => setUnits(event.target.value)}
-          placeholder={`Units (x ${unitMinutes} min)`}
-          required
-        />
-        <label className="sr-only" htmlFor="time-description">
-          Description
-        </label>
-        <input
-          id="time-description"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Description"
-          required
-        />
-        <label className="sr-only" htmlFor="time-category">
-          Category
-        </label>
-        <select id="time-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">No category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Add time"}
+  if (mode.kind === "add") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelAdd}>
+          ← Time Keeping
         </button>
-      </form>
-      {showPreview && (
-        <p className="hint">
-          {previewUnits} unit{previewUnits === 1 ? "" : "s"} × {unitMinutes} minutes = {formatMinutes(previewUnits * unitMinutes)}
-        </p>
-      )}
+        <h1 className="sr-only">Add time entry</h1>
+        <form onSubmit={handleSubmit} className="edit-panel">
+          <p className="edit-panel-title">Add time entry</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Date</span>
+              <input type="date" className="input-compact" value={date} onChange={(event) => setDate(event.target.value)} required />
+            </label>
+            <label className="edit-field">
+              <span>Client</span>
+              <ClientPicker
+                clients={clients}
+                mode={clientMode}
+                onModeChange={setClientMode}
+                name={clientName}
+                onNameChange={setClientName}
+                fieldId="time-client"
+                compact
+              />
+            </label>
+            <label className="edit-field">
+              <span>Matter</span>
+              <input
+                className="input-compact"
+                value={matter}
+                onChange={(event) => setMatter(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Units</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                className="input-compact"
+                value={units}
+                onChange={(event) => setUnits(event.target.value)}
+                placeholder={`x ${unitMinutes} min`}
+                required
+              />
+            </label>
+            <label className="edit-field">
+              <span>Description</span>
+              <input
+                className="input-compact"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                required
+              />
+            </label>
+            <label className="edit-field">
+              <span>Category</span>
+              <select className="input-compact" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="">No category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {showPreview && (
+            <p className="hint">
+              {previewUnits} unit{previewUnits === 1 ? "" : "s"} × {unitMinutes} minutes = {formatMinutes(previewUnits * unitMinutes)}
+            </p>
+          )}
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : "Add time"}
+            </button>
+            <button type="button" onClick={cancelAdd} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {editingId !== null && (
+  if (mode.kind === "edit") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelEdit}>
+          ← Time Keeping
+        </button>
+        <h1 className="sr-only">Editing {editDescription || "time entry"}</h1>
         <div className="edit-panel">
           <p className="edit-panel-title">Editing "{editDescription || "…"}"</p>
           <div className="edit-row">
@@ -373,7 +409,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
             </p>
           )}
           <div className="row-actions">
-            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+            <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
               {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
@@ -381,6 +417,27 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
+      <h1 className="sr-only">Time Keeping</h1>
+
+      <div className="row-actions">
+        <button type="button" onClick={startAdd}>
+          + Add time
+        </button>
+      </div>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
 
       {!loading && entries.length > 0 && (
@@ -450,7 +507,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
             </thead>
             <tbody>
               {filteredEntries.map((entry) => (
-                <tr key={entry.id} className={editingId === entry.id ? "row-editing" : undefined}>
+                <tr key={entry.id}>
                   <td>{dateFmt.format(new Date(entry.date))}</td>
                   <td>{entry.clientName}</td>
                   <td>{entry.matter ?? "—"}</td>

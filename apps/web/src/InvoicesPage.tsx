@@ -29,7 +29,11 @@ function lagLabel(days: number | null): string {
   return days !== null ? `${days}d` : "—";
 }
 
-type View = { kind: "ledger" } | { kind: "client"; clientId: number };
+type View =
+  | { kind: "ledger" }
+  | { kind: "client"; clientId: number }
+  | { kind: "add" }
+  | { kind: "edit"; id: number };
 
 export type ClientMode = "existing" | "new";
 
@@ -128,7 +132,6 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View>({ kind: "ledger" });
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editClientMode, setEditClientMode] = useState<ClientMode>("existing");
   const [editClientName, setEditClientName] = useState("");
@@ -158,6 +161,22 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     refresh();
   }, []);
+
+  function startAdd() {
+    setInvoiceDate(today());
+    setClientMode("existing");
+    setClientName("");
+    setTotalAmount("");
+    setFileNo("");
+    setMatter("");
+    setError(null);
+    setView({ kind: "add" });
+  }
+
+  function cancelAdd() {
+    setError(null);
+    setView({ kind: "ledger" });
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -190,10 +209,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         matter: matter.trim() || undefined,
       });
 
-      setClientName("");
-      setTotalAmount("");
-      setFileNo("");
-      setMatter("");
+      setView({ kind: "ledger" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that invoice");
@@ -212,7 +228,6 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   }
 
   function startEdit(invoice: Invoice) {
-    setEditingId(invoice.id);
     setEditDate(invoice.invoiceDate);
     setEditClientMode("existing");
     setEditClientName(invoice.clientName);
@@ -222,11 +237,12 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     setEditSettledClient(invoice.dateSettledClient ?? "");
     setEditSettledFirm(invoice.dateSettledFirm ?? "");
     setEditError(null);
+    setView({ kind: "edit", id: invoice.id });
   }
 
   function cancelEdit() {
-    setEditingId(null);
     setEditError(null);
+    setView({ kind: "ledger" });
   }
 
   async function saveEdit(id: number) {
@@ -258,7 +274,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         dateSettledClient: editSettledClient || null,
         dateSettledFirm: editSettledFirm || null,
       });
-      setEditingId(null);
+      setView({ kind: "ledger" });
       await refresh();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
@@ -298,76 +314,96 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     );
   }
 
-  return (
-    <>
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
-      </button>
-      <h1 className="sr-only">Invoices</h1>
-      <form onSubmit={handleSubmit} className="quick-add">
-        <label className="sr-only" htmlFor="invoice-date">
-          Invoice date
-        </label>
-        <input
-          id="invoice-date"
-          type="date"
-          value={invoiceDate}
-          onChange={(event) => setInvoiceDate(event.target.value)}
-          required
-        />
-        <ClientPicker
-          clients={clients}
-          mode={clientMode}
-          onModeChange={setClientMode}
-          name={clientName}
-          onNameChange={setClientName}
-          fieldId="invoice-client"
-          autoFocus
-        />
-        <label className="sr-only" htmlFor="invoice-file-no">
-          File no.
-        </label>
-        <input
-          id="invoice-file-no"
-          value={fileNo}
-          onChange={(event) => setFileNo(event.target.value)}
-          placeholder="File no. (optional)"
-        />
-        <label className="sr-only" htmlFor="invoice-matter">
-          Matter
-        </label>
-        <input
-          id="invoice-matter"
-          value={matter}
-          onChange={(event) => setMatter(event.target.value)}
-          placeholder="Matter (optional)"
-        />
-        <label className="sr-only" htmlFor="invoice-amount">
-          Amount
-        </label>
-        <input
-          id="invoice-amount"
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0.01"
-          value={totalAmount}
-          onChange={(event) => setTotalAmount(event.target.value)}
-          placeholder="Amount (£)"
-          required
-        />
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Add invoice"}
+  if (view.kind === "add") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelAdd}>
+          ← Invoices
         </button>
-      </form>
+        <h1 className="sr-only">Add invoice</h1>
+        <form onSubmit={handleSubmit} className="edit-panel">
+          <p className="edit-panel-title">Add invoice</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Date</span>
+              <input
+                type="date"
+                className="input-compact"
+                value={invoiceDate}
+                onChange={(event) => setInvoiceDate(event.target.value)}
+                required
+              />
+            </label>
+            <div className="edit-field">
+              <span>Client</span>
+              <ClientPicker
+                clients={clients}
+                mode={clientMode}
+                onModeChange={setClientMode}
+                name={clientName}
+                onNameChange={setClientName}
+                fieldId="invoice-client"
+                compact
+                autoFocus
+              />
+            </div>
+            <label className="edit-field">
+              <span>File no.</span>
+              <input
+                className="input-compact"
+                value={fileNo}
+                onChange={(event) => setFileNo(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Matter</span>
+              <input
+                className="input-compact"
+                value={matter}
+                onChange={(event) => setMatter(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Amount</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                className="input-compact"
+                value={totalAmount}
+                onChange={(event) => setTotalAmount(event.target.value)}
+                required
+              />
+            </label>
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : "Add invoice"}
+            </button>
+            <button type="button" onClick={cancelAdd} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {editingId !== null && (
+  if (view.kind === "edit") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelEdit}>
+          ← Invoices
+        </button>
+        <h1 className="sr-only">Editing invoice for {editClientName || "client"}</h1>
         <div className="edit-panel">
           <p className="edit-panel-title">Editing invoice for {editClientName || "…"}</p>
           <div className="edit-row">
@@ -445,7 +481,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
             </p>
           )}
           <div className="row-actions">
-            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+            <button type="button" onClick={() => saveEdit(view.id)} disabled={editSubmitting}>
               {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
@@ -453,6 +489,27 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
+      <h1 className="sr-only">Invoices</h1>
+
+      <div className="row-actions">
+        <button type="button" onClick={startAdd}>
+          + Add invoice
+        </button>
+      </div>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
 
       {invoices.length > 0 && (
@@ -503,7 +560,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
             </thead>
             <tbody>
               {filteredInvoices.map((invoice) => (
-                <tr key={invoice.id} className={editingId === invoice.id ? "row-editing" : undefined}>
+                <tr key={invoice.id}>
                   <td>{dateFmt.format(new Date(invoice.invoiceDate))}</td>
                   <td>
                     <button

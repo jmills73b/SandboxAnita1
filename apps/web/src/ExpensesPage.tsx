@@ -18,11 +18,15 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+
 export function ExpensesPage({ onBack }: { onBack: () => void }) {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<Mode>({ kind: "list" });
 
   const [date, setDate] = useState(today());
   const [description, setDescription] = useState("");
@@ -30,7 +34,6 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   const [categoryId, setCategoryId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editCost, setEditCost] = useState("");
@@ -58,6 +61,20 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
     refresh();
   }, []);
 
+  function startAdd() {
+    setDate(today());
+    setDescription("");
+    setCost("");
+    setCategoryId("");
+    setError(null);
+    setMode({ kind: "add" });
+  }
+
+  function cancelAdd() {
+    setError(null);
+    setMode({ kind: "list" });
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
@@ -82,8 +99,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         cost: amount,
         categoryId: categoryId ? Number(categoryId) : null,
       });
-      setDescription("");
-      setCost("");
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't save that expense");
@@ -93,17 +109,17 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   }
 
   function startEdit(expense: Expense) {
-    setEditingId(expense.id);
     setEditDate(expense.date);
     setEditDescription(expense.description);
     setEditCost(String(expense.cost));
     setEditCategoryId(expense.categoryId !== null ? String(expense.categoryId) : "");
     setEditError(null);
+    setMode({ kind: "edit", id: expense.id });
   }
 
   function cancelEdit() {
-    setEditingId(null);
     setEditError(null);
+    setMode({ kind: "list" });
   }
 
   async function saveEdit(id: number) {
@@ -129,7 +145,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
         cost: amount,
         categoryId: editCategoryId ? Number(editCategoryId) : null,
       });
-      setEditingId(null);
+      setMode({ kind: "list" });
       await refresh();
     } catch (err) {
       setEditError(err instanceof Error ? err.message : "Couldn't save those changes");
@@ -165,66 +181,80 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   }
   const categoryBreakdown = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
 
-  return (
-    <>
-      <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
-      </button>
-      <h1 className="sr-only">Expenses</h1>
-
-      <form onSubmit={handleSubmit} className="quick-add">
-        <label className="sr-only" htmlFor="expense-date">
-          Expense date
-        </label>
-        <input id="expense-date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
-        <label className="sr-only" htmlFor="expense-description">
-          Description
-        </label>
-        <input
-          id="expense-description"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-          placeholder="Description"
-          required
-          autoFocus
-        />
-        <label className="sr-only" htmlFor="expense-category">
-          Category
-        </label>
-        <select id="expense-category" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-          <option value="">No category</option>
-          {categories.map((cat) => (
-            <option key={cat.id} value={cat.id}>
-              {cat.name}
-            </option>
-          ))}
-        </select>
-        <label className="sr-only" htmlFor="expense-cost">
-          Cost
-        </label>
-        <input
-          id="expense-cost"
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0.01"
-          value={cost}
-          onChange={(event) => setCost(event.target.value)}
-          placeholder="Cost (£)"
-          required
-        />
-        <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Add expense"}
+  if (mode.kind === "add") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelAdd}>
+          ← Expenses
         </button>
-      </form>
+        <h1 className="sr-only">Add expense</h1>
+        <form onSubmit={handleSubmit} className="edit-panel">
+          <p className="edit-panel-title">Add expense</p>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Date</span>
+              <input type="date" className="input-compact" value={date} onChange={(event) => setDate(event.target.value)} required />
+            </label>
+            <label className="edit-field">
+              <span>Description</span>
+              <input
+                className="input-compact"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                required
+                autoFocus
+              />
+            </label>
+            <label className="edit-field">
+              <span>Category</span>
+              <select className="input-compact" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="">No category</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="edit-field">
+              <span>Cost</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0.01"
+                className="input-compact"
+                value={cost}
+                onChange={(event) => setCost(event.target.value)}
+                required
+              />
+            </label>
+          </div>
+          {error && (
+            <p className="error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="row-actions">
+            <button type="submit" disabled={submitting}>
+              {submitting ? "Saving…" : "Add expense"}
+            </button>
+            <button type="button" onClick={cancelAdd} disabled={submitting}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </>
+    );
+  }
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {editingId !== null && (
+  if (mode.kind === "edit") {
+    return (
+      <>
+        <button type="button" className="back-link" onClick={cancelEdit}>
+          ← Expenses
+        </button>
+        <h1 className="sr-only">Editing {editDescription || "expense"}</h1>
         <div className="edit-panel">
           <p className="edit-panel-title">Editing "{editDescription || "…"}"</p>
           <div className="edit-row">
@@ -279,7 +309,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
             </p>
           )}
           <div className="row-actions">
-            <button type="button" onClick={() => saveEdit(editingId)} disabled={editSubmitting}>
+            <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
               {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
@@ -287,6 +317,27 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
             </button>
           </div>
         </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button type="button" className="back-link" onClick={onBack}>
+        ← Dashboard
+      </button>
+      <h1 className="sr-only">Expenses</h1>
+
+      <div className="row-actions">
+        <button type="button" onClick={startAdd}>
+          + Add expense
+        </button>
+      </div>
+
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
       )}
 
       {!loading && expenses.length > 0 && (
@@ -354,7 +405,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
             </thead>
             <tbody>
               {filteredExpenses.map((expense) => (
-                <tr key={expense.id} className={editingId === expense.id ? "row-editing" : undefined}>
+                <tr key={expense.id}>
                   <td>{dateFmt.format(new Date(expense.date))}</td>
                   <td>{expense.description}</td>
                   <td>{expense.category ?? "—"}</td>
@@ -378,4 +429,3 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
     </>
   );
 }
-
