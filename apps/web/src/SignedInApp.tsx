@@ -50,6 +50,16 @@ export function SignedInApp({
     if (!tasksDisabled) refreshDueTaskCount();
   }, [screen.kind, tasksDisabled]);
 
+  // The quick panel is a preview of the full Tasks & Reminders screen —
+  // showing it on top of that screen itself is redundant (and looked
+  // like a rendering bug, with the same task appearing twice). Force it
+  // closed the moment that screen is reached, however the user got
+  // there — not just via "View all tasks", but the dashboard tile or
+  // back-navigation too.
+  useEffect(() => {
+    if (screen.kind === "tasks") setShowTasks(false);
+  }, [screen.kind]);
+
   useEffect(() => {
     getAccountSettings()
       .then((settings) => setDisabledFeatures(settings.disabledFeatures))
@@ -80,7 +90,14 @@ export function SignedInApp({
               <button
                 type="button"
                 className="secondary task-badge-button"
-                onClick={() => setShowTasks((prev) => !prev)}
+                onClick={() => {
+                  // Already looking at the full list — nothing for the
+                  // preview to add, and toggling it here would silently
+                  // flip a hidden flag that then surprises the next
+                  // toggle from a different screen.
+                  if (screen.kind === "tasks") return;
+                  setShowTasks((prev) => !prev);
+                }}
               >
                 Tasks
                 {dueTaskCount > 0 && <span className="task-badge">{dueTaskCount}</span>}
@@ -92,7 +109,7 @@ export function SignedInApp({
           </div>
         </div>
       </header>
-      {showTasks && !tasksDisabled && (
+      {showTasks && !tasksDisabled && screen.kind !== "tasks" && (
         <TaskQuickPanel
           onClose={() => {
             setShowTasks(false);
