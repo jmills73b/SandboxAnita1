@@ -10,23 +10,29 @@ async function sessionCookie(): Promise<string> {
   return `session=${token}`;
 }
 
-function fakeEnv(options: { inviteCode?: string } = {}): Env {
+function fakeEnv(options: { inviteCode?: string; disabledFeatures?: string[] } = {}): Env {
   let inviteCode = options.inviteCode ?? "";
+  let disabledFeatures = JSON.stringify(options.disabledFeatures ?? []);
 
   return {
     SESSION_SECRET: SECRET,
     DB: {
-      prepare: () => {
+      prepare: (sql: string) => {
         let boundArgs: unknown[] = [];
         const statement = {
           bind: (...args: unknown[]) => {
             boundArgs = args;
             return statement;
           },
-          first: async <T,>() => ({ invite_code: inviteCode }) as T,
+          first: async <T,>() => ({ invite_code: inviteCode, disabled_features: disabledFeatures }) as T,
           run: async () => {
-            const [newCode] = boundArgs as [string];
-            inviteCode = newCode;
+            if (sql.includes("SET invite_code")) {
+              const [newCode] = boundArgs as [string];
+              inviteCode = newCode;
+            } else if (sql.includes("SET disabled_features")) {
+              const [newFeatures] = boundArgs as [string];
+              disabledFeatures = newFeatures;
+            }
             return { success: true, meta: {} };
           },
         };
@@ -42,21 +48,21 @@ describe("GET /api/account-settings", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns the current invite code", async () => {
+  it("returns the current invite code and disabled features", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/account-settings",
       { headers: { Cookie: cookie } },
-      fakeEnv({ inviteCode: "LETMEIN" }),
+      fakeEnv({ inviteCode: "LETMEIN", disabledFeatures: ["time"] }),
     );
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ inviteCode: "LETMEIN" });
+    expect(await res.json()).toEqual({ inviteCode: "LETMEIN", disabledFeatures: ["time"] });
   });
 
-  it("returns an empty code when none has been set yet", async () => {
+  it("returns defaults when nothing has been set yet", async () => {
     const cookie = await sessionCookie();
     const res = await app.request("/api/account-settings", { headers: { Cookie: cookie } }, fakeEnv());
-    expect(await res.json()).toEqual({ inviteCode: "" });
+    expect(await res.json()).toEqual({ inviteCode: "", disabledFeatures: [] });
   });
 });
 
@@ -85,5 +91,68 @@ describe("PUT /api/account-settings", () => {
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ inviteCode: "NEWCODE123" });
+  });
+});
+
+describe("PUT /api/account-settings/features", () => {
+  it("rejects a request with no session", async () => {
+    const res = await app.request("/api/account-settings/features", { method: "PUT" }, fakeEnv());
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a non-array body", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ disabledFeatures: "time" }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a key that isn't toggleable", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ disabledFeatures: ["clients"] }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an unknown feature key", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ disabledFeatures: ["nonsense"] }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("saves a valid set of disabled features, deduplicated", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      {
+        method: "PUT",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ disabledFeatures: ["time", "tasks", "time"] }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ disabledFeatures: ["time", "tasks"] });
+  });
+
+  it("persists an empty list to re-enable everything", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ disabledFeatures: [] }) },
+      fakeEnv({ disabledFeatures: ["time"] }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ disabledFeatures: [] });
   });
 });

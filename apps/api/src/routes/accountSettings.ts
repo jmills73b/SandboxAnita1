@@ -9,11 +9,30 @@ const accountSettings = new Hono<AppEnv>();
 // signed in, or it stops gating anything.
 accountSettings.use("*", requireAuth);
 
+// Clients is foundational (other features reference client records) and
+// Admin & Settings is where this very toggle lives — allowing either to
+// be hidden would make the app unusable or lock the account out of ever
+// re-enabling something.
+const TOGGLEABLE_FEATURES = ["time", "invoices", "performance", "invoice-generator", "expenses", "tax", "tasks"];
+
+function parseDisabledFeatures(stored: string): string[] {
+  try {
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed.filter((key): key is string => typeof key === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
 accountSettings.get("/", async (c) => {
-  const row = await c.env.DB.prepare("SELECT invite_code FROM account_settings WHERE id = 1").first<{
+  const row = await c.env.DB.prepare("SELECT invite_code, disabled_features FROM account_settings WHERE id = 1").first<{
     invite_code: string;
+    disabled_features: string;
   }>();
-  return c.json({ inviteCode: row?.invite_code ?? "" });
+  return c.json({
+    inviteCode: row?.invite_code ?? "",
+    disabledFeatures: parseDisabledFeatures(row?.disabled_features ?? "[]"),
+  });
 });
 
 accountSettings.put("/", async (c) => {
@@ -23,9 +42,36 @@ accountSettings.put("/", async (c) => {
     return c.json({ error: "Enter an invite code" }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE account_settings SET invite_code = ? WHERE id = 1").bind(trimmed).run();
+  // An upsert rather than a plain UPDATE — the singleton row is created by
+  // migration 0006, but a plain "WHERE id = 1" update silently affects zero
+  // rows (and still reports success) if that row is ever missing.
+  await c.env.DB.prepare(
+    "INSERT INTO account_settings (id, invite_code) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET invite_code = excluded.invite_code",
+  )
+    .bind(trimmed)
+    .run();
 
   return c.json({ inviteCode: trimmed });
+});
+
+accountSettings.put("/features", async (c) => {
+  const { disabledFeatures } = await c.req.json<{ disabledFeatures?: unknown }>();
+  if (!Array.isArray(disabledFeatures) || !disabledFeatures.every((key) => typeof key === "string")) {
+    return c.json({ error: "disabledFeatures must be a list of feature keys" }, 400);
+  }
+  const invalid = disabledFeatures.filter((key) => !TOGGLEABLE_FEATURES.includes(key));
+  if (invalid.length > 0) {
+    return c.json({ error: `Not a toggleable feature: ${invalid.join(", ")}` }, 400);
+  }
+
+  const deduped = [...new Set(disabledFeatures)];
+  await c.env.DB.prepare(
+    "INSERT INTO account_settings (id, disabled_features) VALUES (1, ?) ON CONFLICT(id) DO UPDATE SET disabled_features = excluded.disabled_features",
+  )
+    .bind(JSON.stringify(deduped))
+    .run();
+
+  return c.json({ disabledFeatures: deduped });
 });
 
 export default accountSettings;
