@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { addClient, getClientCategories, getClients, updateClient, type Client, type ClientCategory } from "./api";
 import { ClientNotesPanel } from "./ClientNotesPanel";
+import { MarkdownToolbar } from "./MarkdownToolbar";
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -68,6 +69,9 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   const [notesClient, setNotesClient] = useState<Client | null>(null);
+
+  const summaryRef = useRef<HTMLTextAreaElement>(null);
+  const editSummaryRef = useRef<HTMLTextAreaElement>(null);
 
   async function refresh() {
     setLoading(true);
@@ -211,14 +215,18 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label className="edit-field">
-              <span>Summary</span>
-              <input
-                className="input-compact"
-                value={summary}
-                onChange={(event) => setSummary(event.target.value)}
-              />
-            </label>
+          </div>
+          <div className="edit-field">
+            <span>Summary</span>
+            <MarkdownToolbar textareaRef={summaryRef} onChange={setSummary} />
+            <textarea
+              ref={summaryRef}
+              className="notes-textarea"
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+              rows={6}
+              placeholder="What should everyone know about this client…"
+            />
           </div>
           <div className="edit-field">
             <span>Category</span>
@@ -265,14 +273,18 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                 onChange={(event) => setEditEmail(event.target.value)}
               />
             </label>
-            <label className="edit-field">
-              <span>Summary</span>
-              <input
-                className="input-compact"
-                value={editSummary}
-                onChange={(event) => setEditSummary(event.target.value)}
-              />
-            </label>
+          </div>
+          <div className="edit-field">
+            <span>Summary</span>
+            <MarkdownToolbar textareaRef={editSummaryRef} onChange={setEditSummary} />
+            <textarea
+              ref={editSummaryRef}
+              className="notes-textarea"
+              value={editSummary}
+              onChange={(event) => setEditSummary(event.target.value)}
+              rows={6}
+              placeholder="What should everyone know about this client…"
+            />
           </div>
           <div className="edit-field">
             <span>Category</span>
