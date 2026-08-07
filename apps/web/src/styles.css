@@ -1005,6 +1005,38 @@ button.secondary {
   margin-top: 2px;
 }
 
+.expense-breakdown-toggle {
+  margin-bottom: 20px;
+}
+
+/* Every category, sorted by spend, each with a bar sized relative to the
+   largest category — an explicit "show me" panel rather than living in
+   the main summary, since a handful of top categories mixed in with the
+   grand total read as if they were the whole picture. */
+.expense-breakdown {
+  margin-bottom: 24px;
+}
+
+.expense-breakdown-row {
+  margin-bottom: 14px;
+}
+
+.expense-breakdown-row:last-child {
+  margin-bottom: 0;
+}
+
+.expense-breakdown-row-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.expense-breakdown-row-head span:last-child {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
 /* Performance stats: actual vs. target with a percentage bar, rather than
    bare numbers side by side — the bar is what makes "how close am I"
    readable at a glance. */
