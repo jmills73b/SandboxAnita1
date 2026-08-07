@@ -185,7 +185,7 @@ export function ClientNotesPage({
       setCategories(categoryList);
       setFollowUps(
         taskList
-          .filter((t) => t.clientId === clientId && !t.paused)
+          .filter((t) => t.clientId === clientId && t.status === "active")
           .sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate)),
       );
     } catch (err) {

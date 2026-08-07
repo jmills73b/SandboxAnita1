@@ -1499,6 +1499,14 @@ button.secondary {
   position: relative;
 }
 
+/* The header's quick preview — capped to a handful of items with a "View
+   all" link rather than growing to match however many tasks exist, and
+   kept visually lighter/narrower than a full edit panel so it reads as a
+   quick glance, not another page dropped onto whatever screen you're on. */
+.task-quick-panel {
+  max-width: 420px;
+}
+
 .task-badge {
   position: absolute;
   top: -6px;
@@ -1536,14 +1544,43 @@ button.secondary {
   color: var(--ink-soft);
 }
 
-.task-due-date.due-today {
+.task-due-date.urgency-gettingLate {
   color: var(--warn);
   font-weight: 600;
 }
 
-.task-due-date.overdue {
+.task-due-date.urgency-late {
   color: var(--error);
   font-weight: 600;
+}
+
+/* Grouped sections on the Tasks & Reminders screen — Late / Getting late
+   / Coming soon / Paused, each its own labeled block rather than one long
+   undifferentiated list. */
+.task-urgency-group {
+  margin-bottom: 28px;
+}
+
+.task-urgency-group:last-child {
+  margin-bottom: 0;
+}
+
+.task-urgency-heading {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  margin: 0 0 10px;
+}
+
+.task-urgency-heading.urgency-late {
+  color: var(--error);
+}
+
+.task-urgency-heading.urgency-gettingLate {
+  color: var(--warn);
 }
 
 .follow-up-picker {

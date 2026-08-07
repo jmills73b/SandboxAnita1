@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { firstMatchingWeekday } from "@sandboxanita1/core";
 import {
   actOnTask,
   addTask,
@@ -10,6 +11,8 @@ import {
   type TaskFrequency,
   type TaskOccurrence,
 } from "./api";
+import { DayOfWeekPicker } from "./DayOfWeekPicker";
+import { addDaysIso, taskUrgency, URGENCY_LABELS, URGENCY_ORDER, type Urgency } from "./taskUrgency";
 
 const FREQUENCIES: { value: TaskFrequency; label: string }[] = [
   { value: "once", label: "One-off" },
@@ -30,6 +33,10 @@ const ACTION_LABELS: Record<TaskAction, string> = {
 
 const DEFAULT_DUE_TIME = "09:30";
 
+// How long a finished one-off task stays in "Recently completed" before
+// it ages into the Historic tab.
+const RECENT_WINDOW_DAYS = 7;
+
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -44,18 +51,67 @@ function formatTime(time: string): string {
   return `${twelveHour}:${minutes} ${period}`;
 }
 
-function dueClass(task: Task, today: string): string {
-  if (task.paused) return "";
-  if (task.nextDueDate < today) return "overdue";
-  if (task.nextDueDate === today) return "due-today";
-  return "";
-}
-
 function frequencyLabel(frequency: TaskFrequency): string {
   return FREQUENCIES.find((f) => f.value === frequency)?.label ?? frequency;
 }
 
+// A daily reminder's days-of-week only means something as a *restriction*
+// — none selected, or all seven, both mean "every day," so there's
+// nothing worth persisting or asking the API to validate.
+function daysOfWeekForSubmit(frequency: TaskFrequency, daysOfWeek: number[]): number[] | null {
+  return frequency === "daily" && daysOfWeek.length > 0 && daysOfWeek.length < 7 ? daysOfWeek : null;
+}
+
 type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number };
+type ListTab = "active" | "recent" | "historic";
+
+function ReminderDateFields({
+  frequency,
+  daysOfWeek,
+  onDaysOfWeekChange,
+  nextDueDate,
+  onNextDueDateChange,
+}: {
+  frequency: TaskFrequency;
+  daysOfWeek: number[];
+  onDaysOfWeekChange: (days: number[]) => void;
+  nextDueDate: string;
+  onNextDueDateChange: (date: string) => void;
+}) {
+  function pickDays(days: number[]) {
+    onDaysOfWeekChange(days);
+    if (days.length > 0) {
+      onNextDueDateChange(firstMatchingWeekday(nextDueDate || todayISO(), days));
+    }
+  }
+
+  return (
+    <>
+      {frequency === "daily" && (
+        <label className="edit-field">
+          <span>Repeat on (optional — leave blank for every day)</span>
+          <DayOfWeekPicker mode="multi" value={daysOfWeek} onChange={pickDays} />
+        </label>
+      )}
+      {(frequency === "weekly" || frequency === "fortnightly" || frequency === "four_weekly") && (
+        <label className="edit-field">
+          <span>Pin to a weekday (optional)</span>
+          <DayOfWeekPicker mode="single" value={daysOfWeek} onChange={pickDays} />
+        </label>
+      )}
+      <label className="edit-field">
+        <span>Next due date</span>
+        <input
+          type="date"
+          className="input-compact"
+          value={nextDueDate}
+          onChange={(event) => onNextDueDateChange(event.target.value)}
+          required
+        />
+      </label>
+    </>
+  );
+}
 
 export function TasksPage({ onBack }: { onBack: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -63,10 +119,12 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
 
   const [mode, setMode] = useState<Mode>({ kind: "list" });
+  const [listTab, setListTab] = useState<ListTab>("active");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [frequency, setFrequency] = useState<TaskFrequency>("monthly");
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([]);
   const [nextDueDate, setNextDueDate] = useState(todayISO());
   const [dueTime, setDueTime] = useState(DEFAULT_DUE_TIME);
   const [submitting, setSubmitting] = useState(false);
@@ -79,6 +137,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editFrequency, setEditFrequency] = useState<TaskFrequency>("monthly");
+  const [editDaysOfWeek, setEditDaysOfWeek] = useState<number[]>([]);
   const [editNextDueDate, setEditNextDueDate] = useState("");
   const [editDueTime, setEditDueTime] = useState(DEFAULT_DUE_TIME);
   const [editError, setEditError] = useState<string | null>(null);
@@ -103,6 +162,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     setTitle("");
     setDescription("");
     setFrequency("monthly");
+    setDaysOfWeek([]);
     setNextDueDate(todayISO());
     setDueTime(DEFAULT_DUE_TIME);
     setError(null);
@@ -112,6 +172,16 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   function cancelAdd() {
     setError(null);
     setMode({ kind: "list" });
+  }
+
+  function changeFrequency(value: TaskFrequency) {
+    setFrequency(value);
+    setDaysOfWeek([]);
+  }
+
+  function changeEditFrequency(value: TaskFrequency) {
+    setEditFrequency(value);
+    setEditDaysOfWeek([]);
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -126,7 +196,14 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
 
     setSubmitting(true);
     try {
-      await addTask({ title: trimmed, description: description.trim() || null, frequency, nextDueDate, dueTime });
+      await addTask({
+        title: trimmed,
+        description: description.trim() || null,
+        frequency,
+        daysOfWeek: daysOfWeekForSubmit(frequency, daysOfWeek),
+        nextDueDate,
+        dueTime,
+      });
       setMode({ kind: "list" });
       await refresh();
     } catch (err) {
@@ -158,7 +235,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     setActingId(task.id);
     setError(null);
     try {
-      await updateTask(task.id, { paused: !task.paused });
+      await updateTask(task.id, { status: task.status === "paused" ? "active" : "paused" });
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't update that task");
@@ -188,6 +265,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     setEditTitle(task.title);
     setEditDescription(task.description ?? "");
     setEditFrequency(task.frequency);
+    setEditDaysOfWeek(task.daysOfWeek ?? []);
     setEditNextDueDate(task.nextDueDate);
     setEditDueTime(task.dueTime);
     setEditError(null);
@@ -213,6 +291,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
         title: trimmed,
         description: editDescription.trim() || null,
         frequency: editFrequency,
+        daysOfWeek: daysOfWeekForSubmit(editFrequency, editDaysOfWeek),
         nextDueDate: editNextDueDate,
         dueTime: editDueTime,
       });
@@ -226,9 +305,114 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   }
 
   const today = todayISO();
-  const sortedTasks = [...tasks].sort(
-    (a, b) => Number(a.paused) - Number(b.paused) || a.nextDueDate.localeCompare(b.nextDueDate),
-  );
+  const recentCutoff = addDaysIso(today, -RECENT_WINDOW_DAYS);
+
+  const activeTasks = tasks.filter((t) => t.status === "active");
+  const pausedTasks = tasks.filter((t) => t.status === "paused");
+  const doneTasks = tasks.filter((t) => t.status === "done");
+
+  const grouped: Record<Urgency, Task[]> = { late: [], gettingLate: [], comingSoon: [] };
+  for (const task of activeTasks) {
+    grouped[taskUrgency(task.nextDueDate, today)].push(task);
+  }
+  for (const urgency of URGENCY_ORDER) {
+    grouped[urgency].sort((a, b) => a.nextDueDate.localeCompare(b.nextDueDate));
+  }
+
+  const recentlyCompleted = doneTasks
+    .filter((t) => (t.completedAt ?? "") >= recentCutoff)
+    .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+  const historic = doneTasks
+    .filter((t) => (t.completedAt ?? "") < recentCutoff)
+    .sort((a, b) => (b.completedAt ?? "").localeCompare(a.completedAt ?? ""));
+
+  function renderTaskCard(task: Task, urgency?: Urgency) {
+    return (
+      <div className={`note-card task-card ${task.status === "paused" ? "task-paused" : ""}`} key={task.id}>
+        <button type="button" className="note-card-summary" onClick={() => toggleExpand(task)}>
+          <div className="note-card-meta">
+            {task.status === "done" ? (
+              <span className="task-due-date">
+                Completed {task.completedAt ? task.completedAt.slice(0, 10) : "—"}
+              </span>
+            ) : (
+              <span className={`task-due-date ${urgency ? `urgency-${urgency}` : ""}`}>
+                {task.nextDueDate} · {formatTime(task.dueTime)}
+              </span>
+            )}
+            <span className="task-title">{task.title}</span>
+            <span className="chip">{frequencyLabel(task.frequency)}</span>
+            {task.clientName && <span className="chip">{task.clientName}</span>}
+            {task.status === "paused" && <span className="note-edited-badge">Paused</span>}
+          </div>
+          {expandedId !== task.id && task.description && (
+            <p className="note-card-preview">{task.description}</p>
+          )}
+        </button>
+
+        {expandedId === task.id && (
+          <div className="note-card-body">
+            {task.description && <p className="note-card-preview">{task.description}</p>}
+            <div className="row-actions">
+              {task.status === "active" && (
+                <>
+                  <button type="button" onClick={() => handleAction(task.id, "completed")} disabled={actingId === task.id}>
+                    Done
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleAction(task.id, "skipped")}
+                    disabled={actingId === task.id}
+                  >
+                    Skip
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => handleAction(task.id, "not_needed")}
+                    disabled={actingId === task.id}
+                  >
+                    Not needed
+                  </button>
+                </>
+              )}
+              {task.status !== "done" && (
+                <>
+                  <button type="button" className="secondary" onClick={() => startEdit(task)}>
+                    Edit
+                  </button>
+                  <button type="button" className="secondary" onClick={() => togglePause(task)} disabled={actingId === task.id}>
+                    {task.status === "paused" ? "Resume" : "Pause"}
+                  </button>
+                </>
+              )}
+              <button type="button" className="secondary" onClick={() => loadHistory(task.id)}>
+                {historyLoadingId === task.id ? "Loading…" : historyByTask[task.id] ? "History" : "Show history"}
+              </button>
+            </div>
+            {historyByTask[task.id] && (
+              <div className="note-history">
+                {(historyByTask[task.id] ?? []).length === 0 ? (
+                  <p className="empty">No history yet for this reminder.</p>
+                ) : (
+                  (historyByTask[task.id] ?? []).map((occurrence) => (
+                    <div className="note-history-item" key={occurrence.id}>
+                      <div className="note-card-meta">
+                        <span className="task-due-date">{occurrence.dueDate}</span>
+                        <span className="chip">{ACTION_LABELS[occurrence.action]}</span>
+                        <span className="note-history-label">on {occurrence.actedAt.slice(0, 10)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (mode.kind === "add") {
     return (
@@ -255,7 +439,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               <select
                 className="input-compact"
                 value={frequency}
-                onChange={(event) => setFrequency(event.target.value as TaskFrequency)}
+                onChange={(event) => changeFrequency(event.target.value as TaskFrequency)}
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -264,16 +448,13 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
             </label>
-            <label className="edit-field">
-              <span>Next due date</span>
-              <input
-                type="date"
-                className="input-compact"
-                value={nextDueDate}
-                onChange={(event) => setNextDueDate(event.target.value)}
-                required
-              />
-            </label>
+            <ReminderDateFields
+              frequency={frequency}
+              daysOfWeek={daysOfWeek}
+              onDaysOfWeekChange={setDaysOfWeek}
+              nextDueDate={nextDueDate}
+              onNextDueDateChange={setNextDueDate}
+            />
             <label className="edit-field">
               <span>Time</span>
               <input
@@ -331,7 +512,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               <select
                 className="input-compact"
                 value={editFrequency}
-                onChange={(event) => setEditFrequency(event.target.value as TaskFrequency)}
+                onChange={(event) => changeEditFrequency(event.target.value as TaskFrequency)}
               >
                 {FREQUENCIES.map((f) => (
                   <option key={f.value} value={f.value}>
@@ -340,15 +521,13 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                 ))}
               </select>
             </label>
-            <label className="edit-field">
-              <span>Next due date</span>
-              <input
-                type="date"
-                className="input-compact"
-                value={editNextDueDate}
-                onChange={(event) => setEditNextDueDate(event.target.value)}
-              />
-            </label>
+            <ReminderDateFields
+              frequency={editFrequency}
+              daysOfWeek={editDaysOfWeek}
+              onDaysOfWeekChange={setEditDaysOfWeek}
+              nextDueDate={editNextDueDate}
+              onNextDueDateChange={setEditNextDueDate}
+            />
             <label className="edit-field">
               <span>Time</span>
               <input
@@ -405,88 +584,76 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
         </p>
       )}
 
+      {tasks.length > 0 && (
+        <div className="subtabs" role="tablist" aria-label="Task view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listTab === "active"}
+            className={`subtab ${listTab === "active" ? "active" : ""}`}
+            onClick={() => setListTab("active")}
+          >
+            Active
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listTab === "recent"}
+            className={`subtab ${listTab === "recent" ? "active" : ""}`}
+            onClick={() => setListTab("recent")}
+          >
+            Recently completed{recentlyCompleted.length > 0 && ` (${recentlyCompleted.length})`}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={listTab === "historic"}
+            className={`subtab ${listTab === "historic" ? "active" : ""}`}
+            onClick={() => setListTab("historic")}
+          >
+            Historic
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <p className="loading">Loading…</p>
-      ) : sortedTasks.length === 0 ? (
+      ) : tasks.length === 0 ? (
         <p className="empty">No reminders yet — add the first one above.</p>
+      ) : listTab === "active" ? (
+        activeTasks.length === 0 && pausedTasks.length === 0 ? (
+          <p className="empty">Nothing active — every reminder is finished or paused.</p>
+        ) : (
+          <>
+            {URGENCY_ORDER.map(
+              (urgency) =>
+                grouped[urgency].length > 0 && (
+                  <section className="task-urgency-group" key={urgency}>
+                    <h2 className={`task-urgency-heading urgency-${urgency}`}>
+                      {URGENCY_LABELS[urgency]} ({grouped[urgency].length})
+                    </h2>
+                    <div className="note-list">{grouped[urgency].map((task) => renderTaskCard(task, urgency))}</div>
+                  </section>
+                ),
+            )}
+            {pausedTasks.length > 0 && (
+              <section className="task-urgency-group">
+                <h2 className="task-urgency-heading">Paused ({pausedTasks.length})</h2>
+                <div className="note-list">{pausedTasks.map((task) => renderTaskCard(task))}</div>
+              </section>
+            )}
+          </>
+        )
+      ) : listTab === "recent" ? (
+        recentlyCompleted.length === 0 ? (
+          <p className="empty">Nothing completed in the last {RECENT_WINDOW_DAYS} days.</p>
+        ) : (
+          <div className="note-list">{recentlyCompleted.map((task) => renderTaskCard(task))}</div>
+        )
+      ) : historic.length === 0 ? (
+        <p className="empty">Nothing in the historic archive yet.</p>
       ) : (
-        <div className="note-list">
-          {sortedTasks.map((task) => (
-            <div className={`note-card task-card ${task.paused ? "task-paused" : ""}`} key={task.id}>
-              <button type="button" className="note-card-summary" onClick={() => toggleExpand(task)}>
-                <div className="note-card-meta">
-                  <span className={`task-due-date ${dueClass(task, today)}`}>
-                    {task.nextDueDate} · {formatTime(task.dueTime)}
-                  </span>
-                  <span className="task-title">{task.title}</span>
-                  <span className="chip">{frequencyLabel(task.frequency)}</span>
-                  {task.clientName && <span className="chip">{task.clientName}</span>}
-                  {task.paused && <span className="note-edited-badge">Paused</span>}
-                </div>
-                {expandedId !== task.id && task.description && (
-                  <p className="note-card-preview">{task.description}</p>
-                )}
-              </button>
-
-              {expandedId === task.id && (
-                <div className="note-card-body">
-                  {task.description && <p className="note-card-preview">{task.description}</p>}
-                  <div className="row-actions">
-                    {!task.paused && (
-                      <>
-                        <button type="button" onClick={() => handleAction(task.id, "completed")} disabled={actingId === task.id}>
-                          Done
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => handleAction(task.id, "skipped")}
-                          disabled={actingId === task.id}
-                        >
-                          Skip
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => handleAction(task.id, "not_needed")}
-                          disabled={actingId === task.id}
-                        >
-                          Not needed
-                        </button>
-                      </>
-                    )}
-                    <button type="button" className="secondary" onClick={() => startEdit(task)}>
-                      Edit
-                    </button>
-                    <button type="button" className="secondary" onClick={() => togglePause(task)} disabled={actingId === task.id}>
-                      {task.paused ? "Resume" : "Pause"}
-                    </button>
-                    <button type="button" className="secondary" onClick={() => loadHistory(task.id)}>
-                      {historyLoadingId === task.id ? "Loading…" : historyByTask[task.id] ? "History" : "Show history"}
-                    </button>
-                  </div>
-                  {historyByTask[task.id] && (
-                    <div className="note-history">
-                      {(historyByTask[task.id] ?? []).length === 0 ? (
-                        <p className="empty">No history yet for this reminder.</p>
-                      ) : (
-                        (historyByTask[task.id] ?? []).map((occurrence) => (
-                          <div className="note-history-item" key={occurrence.id}>
-                            <div className="note-card-meta">
-                              <span className="task-due-date">{occurrence.dueDate}</span>
-                              <span className="chip">{ACTION_LABELS[occurrence.action]}</span>
-                              <span className="note-history-label">on {occurrence.actedAt.slice(0, 10)}</span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        <div className="note-list">{historic.map((task) => renderTaskCard(task))}</div>
       )}
     </>
   );

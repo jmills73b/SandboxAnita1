@@ -7,7 +7,8 @@ import { ExpensesPage } from "./ExpensesPage";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
-import { TaskSummaryPanel } from "./TaskSummaryPanel";
+import { TaskQuickPanel } from "./TaskQuickPanel";
+import { needsAttention } from "./taskUrgency";
 import { TasksPage } from "./TasksPage";
 import { TaxPage } from "./TaxPage";
 import { ThemeQuickSwitch } from "./ThemeQuickSwitch";
@@ -38,7 +39,7 @@ export function SignedInApp({
     try {
       const tasks = await getTasks();
       const today = todayISO();
-      setDueTaskCount(tasks.filter((t) => !t.paused && t.nextDueDate <= today).length);
+      setDueTaskCount(tasks.filter((t) => t.status === "active" && needsAttention(t.nextDueDate, today)).length);
     } catch {
       // The header badge is a convenience, not critical — leave it as-is
       // rather than surfacing an error banner over the whole app for it.
@@ -92,10 +93,14 @@ export function SignedInApp({
         </div>
       </header>
       {showTasks && !tasksDisabled && (
-        <TaskSummaryPanel
+        <TaskQuickPanel
           onClose={() => {
             setShowTasks(false);
             refreshDueTaskCount();
+          }}
+          onViewAll={() => {
+            setShowTasks(false);
+            setScreen({ kind: "tasks" });
           }}
         />
       )}

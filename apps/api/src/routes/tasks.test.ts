@@ -14,9 +14,11 @@ interface StoredTask {
   title: string;
   description: string | null;
   frequency: string;
+  days_of_week?: string | null;
   next_due_date: string;
   due_time?: string;
-  paused: number;
+  status: string;
+  completed_at?: string | null;
   created_at: string;
   client_id?: number | null;
 }
@@ -37,7 +39,7 @@ function fakeEnv(
   } = {},
 ): Env {
   const taskStore = new Map<number, StoredTask>(
-    (options.tasks ?? []).map((t) => [t.id, { client_id: null, due_time: "09:30", ...t }]),
+    (options.tasks ?? []).map((t) => [t.id, { client_id: null, due_time: "09:30", days_of_week: null, completed_at: null, ...t }]),
   );
   const occurrenceStore = new Map<number, StoredOccurrence>((options.occurrences ?? []).map((o) => [o.id, o]));
   const clients = options.clients ?? new Map([[1, "Test Client"]]);
@@ -60,10 +62,11 @@ function fakeEnv(
           },
           first: async <T,>() => {
             if (sql.includes("INSERT INTO tasks")) {
-              const [title, description, frequency, nextDueDateValue, dueTime, clientId] = boundArgs as [
+              const [title, description, frequency, daysOfWeek, nextDueDateValue, dueTime, clientId] = boundArgs as [
                 string,
                 string | null,
                 string,
+                string | null,
                 string,
                 string,
                 number | null,
@@ -74,9 +77,11 @@ function fakeEnv(
                 title,
                 description,
                 frequency,
+                days_of_week: daysOfWeek,
                 next_due_date: nextDueDateValue,
                 due_time: dueTime,
-                paused: 0,
+                status: "active",
+                completed_at: null,
                 created_at: "2026-08-06T00:00:00Z",
                 client_id: clientId,
               };
@@ -97,8 +102,14 @@ function fakeEnv(
               return { results: rows as T[], success: true, meta: {} };
             }
             if (sql.includes("FROM tasks")) {
+              const statusOrder: Record<string, number> = { active: 0, paused: 1, done: 2 };
               const rows = [...taskStore.values()]
-                .sort((a, b) => a.paused - b.paused || a.next_due_date.localeCompare(b.next_due_date) || a.id - b.id)
+                .sort(
+                  (a, b) =>
+                    statusOrder[a.status] - statusOrder[b.status] ||
+                    a.next_due_date.localeCompare(b.next_due_date) ||
+                    a.id - b.id,
+                )
                 .map(withClientName);
               return { results: rows as T[], success: true, meta: {} };
             }
@@ -106,16 +117,8 @@ function fakeEnv(
           },
           run: async () => {
             if (sql.includes("UPDATE tasks SET title = ?")) {
-              const [title, description, frequency, nextDueDateValue, dueTime, paused, clientId, id] = boundArgs as [
-                string,
-                string | null,
-                string,
-                string,
-                string,
-                number,
-                number | null,
-                number,
-              ];
+              const [title, description, frequency, daysOfWeek, nextDueDateValue, dueTime, status, clientId, id] =
+                boundArgs as [string, string | null, string, string | null, string, string, string, number | null, number];
               const existing = taskStore.get(id);
               if (existing) {
                 taskStore.set(id, {
@@ -123,9 +126,10 @@ function fakeEnv(
                   title,
                   description,
                   frequency,
+                  days_of_week: daysOfWeek,
                   next_due_date: nextDueDateValue,
                   due_time: dueTime,
-                  paused,
+                  status,
                   client_id: clientId,
                 });
               }
@@ -133,10 +137,10 @@ function fakeEnv(
               const [taskId, dueDate, action] = boundArgs as [number, string, string];
               const id = nextOccurrenceId++;
               occurrenceStore.set(id, { id, task_id: taskId, due_date: dueDate, action, acted_at: "2026-08-06T00:00:00Z" });
-            } else if (sql.includes("UPDATE tasks SET paused = 1")) {
+            } else if (sql.includes("status = 'done'")) {
               const [id] = boundArgs as [number];
               const existing = taskStore.get(id);
-              if (existing) taskStore.set(id, { ...existing, paused: 1 });
+              if (existing) taskStore.set(id, { ...existing, status: "done", completed_at: "2026-08-06T00:00:00Z" });
             } else if (sql.includes("UPDATE tasks SET next_due_date = ?")) {
               const [newDueDate, id] = boundArgs as [string, number];
               const existing = taskStore.get(id);
@@ -157,16 +161,17 @@ describe("GET /api/tasks", () => {
     expect(res.status).toBe(401);
   });
 
-  it("lists tasks, active ones before paused, soonest due first", async () => {
+  it("lists tasks, active ones before paused before done, soonest due first", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tasks",
       { headers: { Cookie: cookie } },
       fakeEnv({
         tasks: [
-          { id: 1, title: "Paused reminder", description: null, frequency: "monthly", next_due_date: "2026-08-01", paused: 1, created_at: "2026-01-01" },
-          { id: 2, title: "Quarterly VAT check", description: null, frequency: "quarterly", next_due_date: "2026-09-01", paused: 0, created_at: "2026-01-01" },
-          { id: 3, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" },
+          { id: 1, title: "Paused reminder", description: null, frequency: "monthly", next_due_date: "2026-08-01", status: "paused", created_at: "2026-01-01" },
+          { id: 2, title: "Quarterly VAT check", description: null, frequency: "quarterly", next_due_date: "2026-09-01", status: "active", created_at: "2026-01-01" },
+          { id: 3, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" },
+          { id: 4, title: "Renew insurance", description: null, frequency: "once", next_due_date: "2026-07-01", status: "done", created_at: "2026-01-01" },
         ],
       }),
     );
@@ -176,9 +181,11 @@ describe("GET /api/tasks", () => {
       "Weekly timesheet chase",
       "Quarterly VAT check",
       "Paused reminder",
+      "Renew insurance",
     ]);
     expect(body[0].nextDueDate).toBe("2026-08-10");
-    expect(body[2].paused).toBe(true);
+    expect(body[2].status).toBe("paused");
+    expect(body[3].status).toBe("done");
   });
 
   it("includes the linked client's name for a client-linked task, and nulls for an unlinked one", async () => {
@@ -189,8 +196,8 @@ describe("GET /api/tasks", () => {
       fakeEnv({
         clients: new Map([[1, "Jane Roe"]]),
         tasks: [
-          { id: 1, title: "Follow up with Jane Roe", description: null, frequency: "once", next_due_date: "2026-08-13", paused: 0, created_at: "2026-01-01", client_id: 1 },
-          { id: 2, title: "Renew PI insurance", description: null, frequency: "once", next_due_date: "2026-09-01", paused: 0, created_at: "2026-01-01" },
+          { id: 1, title: "Follow up with Jane Roe", description: null, frequency: "once", next_due_date: "2026-08-13", status: "active", created_at: "2026-01-01", client_id: 1 },
+          { id: 2, title: "Renew PI insurance", description: null, frequency: "once", next_due_date: "2026-09-01", status: "active", created_at: "2026-01-01" },
         ],
       }),
     );
@@ -214,7 +221,7 @@ describe("GET /api/tasks/:id", () => {
       "/api/tasks/1",
       { headers: { Cookie: cookie } },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
         occurrences: [
           { id: 1, task_id: 1, due_date: "2026-07-27", action: "completed", acted_at: "2026-07-27T00:00:00Z" },
           { id: 2, task_id: 1, due_date: "2026-08-03", action: "skipped", acted_at: "2026-08-03T00:00:00Z" },
@@ -269,7 +276,7 @@ describe("POST /api/tasks", () => {
     }
   });
 
-  it("creates a task", async () => {
+  it("creates a task, starting active with no completedAt", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tasks",
@@ -282,8 +289,58 @@ describe("POST /api/tasks", () => {
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body).toMatchObject({ title: "Renew insurance", frequency: "yearly", nextDueDate: "2027-01-01", paused: false });
+    expect(body).toMatchObject({
+      title: "Renew insurance",
+      frequency: "yearly",
+      nextDueDate: "2027-01-01",
+      status: "active",
+      completedAt: null,
+      daysOfWeek: null,
+    });
     expect(body.occurrences).toEqual([]);
+  });
+
+  it("accepts daysOfWeek for a daily reminder", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Water the plants", frequency: "daily", daysOfWeek: [6, 0], nextDueDate: "2026-08-08" }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(201);
+    expect((await res.json()).daysOfWeek).toEqual([0, 6]);
+  });
+
+  it("rejects daysOfWeek on a non-daily frequency", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Check something", frequency: "weekly", daysOfWeek: [4], nextDueDate: "2026-08-06" }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects an out-of-range day of week", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ title: "Check something", frequency: "daily", daysOfWeek: [7], nextDueDate: "2026-08-06" }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("defaults dueTime to 09:30 when none is given", async () => {
@@ -351,7 +408,7 @@ describe("PATCH /api/tasks/:id", () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tasks/99",
-      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ paused: true }) },
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "paused" }) },
       fakeEnv(),
     );
     expect(res.status).toBe(404);
@@ -361,13 +418,25 @@ describe("PATCH /api/tasks/:id", () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tasks/1",
-      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ paused: true }) },
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "paused" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(200);
-    expect((await res.json()).paused).toBe(true);
+    expect((await res.json()).status).toBe("paused");
+  });
+
+  it("rejects setting status to 'done' directly — that's only reached via an action", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "done" }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 
   it("manually overrides the next due date", async () => {
@@ -376,7 +445,7 @@ describe("PATCH /api/tasks/:id", () => {
       "/api/tasks/1",
       { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ nextDueDate: "2026-12-25" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(200);
@@ -389,7 +458,7 @@ describe("PATCH /api/tasks/:id", () => {
       "/api/tasks/1",
       { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ dueTime: "16:15" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(200);
@@ -402,10 +471,23 @@ describe("PATCH /api/tasks/:id", () => {
       "/api/tasks/1",
       { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ dueTime: "not-a-time" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(400);
+  });
+
+  it("updates daysOfWeek on a daily reminder", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tasks/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ daysOfWeek: [1, 2, 3, 4, 5] }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Check the post", description: null, frequency: "daily", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).daysOfWeek).toEqual([1, 2, 3, 4, 5]);
   });
 });
 
@@ -426,7 +508,7 @@ describe("POST /api/tasks/:id/actions", () => {
       "/api/tasks/1/actions",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "ignored" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(400);
@@ -438,14 +520,14 @@ describe("POST /api/tasks/:id/actions", () => {
       "/api/tasks/1/actions",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "completed" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Weekly timesheet chase", description: null, frequency: "weekly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.nextDueDate).toBe("2026-08-17");
     expect(body.dueTime).toBe("09:30");
-    expect(body.paused).toBe(false);
+    expect(body.status).toBe("active");
     expect(body.occurrences).toEqual([{ id: 1, dueDate: "2026-08-10", action: "completed", actedAt: "2026-08-06T00:00:00Z" }]);
   });
 
@@ -455,11 +537,25 @@ describe("POST /api/tasks/:id/actions", () => {
       "/api/tasks/1/actions",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "completed" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Fortnightly stock check", description: null, frequency: "fortnightly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Fortnightly stock check", description: null, frequency: "fortnightly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(201);
     expect((await res.json()).nextDueDate).toBe("2026-08-24");
+  });
+
+  it("skips non-selected weekdays for a weekend-only daily task", async () => {
+    const cookie = await sessionCookie();
+    // 2026-08-09 is a Sunday; the next Saturday is 2026-08-15.
+    const res = await app.request(
+      "/api/tasks/1/actions",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "completed" }) },
+      fakeEnv({
+        tasks: [{ id: 1, title: "Water the plants", description: null, frequency: "daily", days_of_week: "0,6", next_due_date: "2026-08-09", status: "active", created_at: "2026-01-01" }],
+      }),
+    );
+    expect(res.status).toBe(201);
+    expect((await res.json()).nextDueDate).toBe("2026-08-15");
   });
 
   it("treats 'not needed' the same as skipped for scheduling — it still advances", async () => {
@@ -468,27 +564,28 @@ describe("POST /api/tasks/:id/actions", () => {
       "/api/tasks/1/actions",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "not_needed" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Quarterly VAT check", description: null, frequency: "quarterly", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Quarterly VAT check", description: null, frequency: "quarterly", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
     expect(body.nextDueDate).toBe("2026-11-10");
-    expect(body.paused).toBe(false);
+    expect(body.status).toBe("active");
   });
 
-  it("auto-pauses a 'once' task instead of scheduling a next occurrence", async () => {
+  it("marks a 'once' task done (not paused) instead of scheduling a next occurrence", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tasks/1/actions",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ action: "completed" }) },
       fakeEnv({
-        tasks: [{ id: 1, title: "Renew insurance", description: null, frequency: "once", next_due_date: "2026-08-10", paused: 0, created_at: "2026-01-01" }],
+        tasks: [{ id: 1, title: "Renew insurance", description: null, frequency: "once", next_due_date: "2026-08-10", status: "active", created_at: "2026-01-01" }],
       }),
     );
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.paused).toBe(true);
+    expect(body.status).toBe("done");
+    expect(body.completedAt).not.toBeNull();
     expect(body.nextDueDate).toBe("2026-08-10");
   });
 });
