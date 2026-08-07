@@ -587,7 +587,7 @@ button.client-link:hover {
 .row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
 }
 
 .row-actions button {
@@ -1448,10 +1448,10 @@ button.secondary {
 }
 
 .note-card-body {
-  padding: 0 14px 14px;
+  padding: 0 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 /* Rendered Markdown output from apps/web/src/markdown.ts */
@@ -1532,7 +1532,7 @@ button.secondary {
    supply top padding via its own padding-box — it goes straight to
    .note-card-body, which otherwise sits flush against the card's top edge. */
 .task-card > .note-card-body {
-  padding-top: 14px;
+  padding-top: 16px;
 }
 
 .task-title {
