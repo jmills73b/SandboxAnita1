@@ -1506,6 +1506,15 @@ button.secondary {
    quick glance, not another page dropped onto whatever screen you're on. */
 .task-quick-panel {
   max-width: 420px;
+  padding: 24px;
+}
+
+.task-quick-panel .notes-panel-header {
+  margin-bottom: 18px;
+}
+
+.task-quick-panel > .row-actions {
+  margin-top: 16px;
 }
 
 .task-badge {
