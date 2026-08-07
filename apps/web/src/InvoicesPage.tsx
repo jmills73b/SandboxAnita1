@@ -1,5 +1,11 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { INVOICE_STATUSES } from "@sandboxanita1/core";
+import {
+  currentTaxYearStartYear,
+  INVOICE_STATUSES,
+  recentTaxYearStartYears,
+  taxYearLabel,
+  taxYearStartDate,
+} from "@sandboxanita1/core";
 import {
   addClient,
   addInvoice,
@@ -17,8 +23,16 @@ const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP
 // for any viewer west of UTC (e.g. Dominican Republic, UTC-4).
 const dateFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
+const YEAR_OPTIONS = 6;
+
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+// Both sides are plain "YYYY-MM-DD", so this is a lexicographic compare —
+// no Date parsing, no timezone to get wrong.
+function isInTaxYear(dateStr: string, startYear: number): boolean {
+  return dateStr >= taxYearStartDate(startYear) && dateStr < taxYearStartDate(startYear + 1);
 }
 
 function statusClass(status: string): string {
@@ -144,6 +158,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
 
   async function refresh() {
     setLoading(true);
@@ -297,8 +312,10 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const yearInvoices = invoices.filter((invoice) => isInTaxYear(invoice.invoiceDate, selectedStartYear));
+
   const trimmedSearch = search.trim().toLowerCase();
-  const filteredInvoices = invoices.filter(
+  const filteredInvoices = yearInvoices.filter(
     (invoice) =>
       (statusFilter === "all" || invoice.status === statusFilter) &&
       invoice.clientName.toLowerCase().includes(trimmedSearch),
@@ -514,6 +531,20 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
 
       {invoices.length > 0 && (
         <div className="filters">
+          <label className="sr-only" htmlFor="invoice-tax-year">
+            Tax year
+          </label>
+          <select
+            id="invoice-tax-year"
+            value={selectedStartYear}
+            onChange={(event) => setSelectedStartYear(Number(event.target.value))}
+          >
+            {recentTaxYearStartYears(YEAR_OPTIONS).map((year) => (
+              <option key={year} value={year}>
+                {taxYearLabel(year)}
+              </option>
+            ))}
+          </select>
           <label className="sr-only" htmlFor="invoice-search">
             Search by client
           </label>
@@ -542,6 +573,8 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
         <p>Loading…</p>
       ) : invoices.length === 0 ? (
         <p className="empty">No invoices yet — add the first one above.</p>
+      ) : yearInvoices.length === 0 ? (
+        <p className="empty">No invoices in {taxYearLabel(selectedStartYear)}.</p>
       ) : filteredInvoices.length === 0 ? (
         <p className="empty">No invoices match your search.</p>
       ) : (
