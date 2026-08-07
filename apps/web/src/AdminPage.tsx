@@ -26,6 +26,7 @@ import {
   type TimeEntry,
   type TimeSettings,
 } from "./api";
+import { AppearanceManager } from "./AppearanceManager";
 import { ClientCategoryManager } from "./ClientCategoryManager";
 import { ExpenseCategoryManager } from "./ExpenseCategoryManager";
 import { TimeCategoryManager } from "./TimeCategoryManager";
@@ -39,7 +40,7 @@ import { UsagePanel } from "./UsagePanel";
 type Section = "categories" | "billing" | "account";
 type CategoriesTab = "clients" | "expenses" | "time" | "notes";
 type BillingTab = "rates" | "invoice" | "tax";
-type AccountTab = "invite" | "export" | "usage";
+type AccountTab = "invite" | "export" | "usage" | "appearance";
 
 const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: "categories", label: "Categories" },
@@ -64,6 +65,7 @@ const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
   { key: "invite", label: "Invite code" },
   { key: "export", label: "Export data" },
   { key: "usage", label: "Usage" },
+  { key: "appearance", label: "Appearance" },
 ];
 
 export function AdminPage({ onBack }: { onBack: () => void }) {
@@ -158,6 +160,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
               {accountTab === "invite" && <InviteCodePanel />}
               {accountTab === "export" && <ExportDataTab />}
               {accountTab === "usage" && <UsagePanel />}
+              {accountTab === "appearance" && <AppearanceManager />}
             </>
           )}
         </div>

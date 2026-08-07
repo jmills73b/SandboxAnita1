@@ -27,6 +27,13 @@
   --error: #7e2e22;
   --warn: #96631c;
 
+  /* The primary button reads these rather than --ink/--paper directly —
+     Light and Dark leave them aliased to ink/paper (unchanged look);
+     Feel Good is the only theme that gives its primary action its own
+     accent colour instead of a monochrome fill. */
+  --button-bg: var(--ink);
+  --button-fg: var(--paper);
+
   --display: "Fraunces", Georgia, "Iowan Old Style", serif;
   --sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -68,6 +75,24 @@
   --line-strong: #bfb6a9;
   --error: #7e2e22;
   --warn: #96631c;
+}
+
+/* Feel Good — soft lilac ground and a deep aubergine ink instead of just
+   a tinted grey, so it reads as its own considered palette rather than
+   "light mode with a filter." The one confident colour choice is the
+   violet accent, spent only on the primary button. */
+:root[data-theme="feelgood"] {
+  --ink: #2c2438;
+  --ink-soft: #6e6178;
+  --ink-faint: #a99cb3;
+  --paper: #f6f1fa;
+  --paper-raised: #fdfbfe;
+  --line: #e6dcee;
+  --line-strong: #cab9d6;
+  --error: #9c3b63;
+  --warn: #a97a3a;
+  --button-bg: #8b5fc7;
+  --button-fg: #fdfbff;
 }
 
 * {
@@ -284,6 +309,7 @@ button.brand {
   border: 1px solid var(--line-strong);
   border-radius: 3px;
   overflow: hidden;
+  margin-bottom: 8px;
 }
 
 .mode-toggle button {
@@ -786,10 +812,10 @@ button {
   font-family: var(--sans);
   font-size: 15px;
   padding: 12px 18px;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--button-bg);
   border-radius: 3px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--button-bg);
+  color: var(--button-fg);
   cursor: pointer;
 }
 
