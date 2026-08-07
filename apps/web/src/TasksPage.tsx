@@ -388,7 +388,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
       </button>
       <h1 className="sr-only">Tasks &amp; Reminders</h1>
 
-      <div className="row-actions">
+      <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
           + Add reminder
         </button>

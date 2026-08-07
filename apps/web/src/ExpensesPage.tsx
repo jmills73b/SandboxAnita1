@@ -328,7 +328,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
       </button>
       <h1 className="sr-only">Expenses</h1>
 
-      <div className="row-actions">
+      <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
           + Add expense
         </button>

@@ -500,7 +500,7 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
       </button>
       <h1 className="sr-only">Invoices</h1>
 
-      <div className="row-actions">
+      <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
           + Add invoice
         </button>

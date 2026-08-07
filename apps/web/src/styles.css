@@ -221,17 +221,29 @@ button.brand {
 }
 
 .back-link {
+  display: inline-block;
   font-size: 12.5px;
   color: var(--ink-faint);
   text-decoration: none;
   background: none;
   border: none;
   padding: 0;
+  margin-bottom: 18px;
   cursor: pointer;
   font-family: var(--sans);
 }
 .back-link:hover {
   color: var(--ink-soft);
+}
+
+/* The "+ Add X" trigger for a page's own add view — a page-level primary
+   action, not a row-level one, so it deliberately doesn't reuse
+   .row-actions (that class's transparent, small-text button styling is
+   for Edit/Notes/Delete sitting inside a table row, not a call to action
+   sitting above the whole page). Left plain, the base button style
+   already reads as primary: solid ink fill, full padding. */
+.page-primary-action {
+  margin: 0 0 24px;
 }
 
 .quick-add {

@@ -303,7 +303,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
       </button>
       <h1 className="sr-only">Clients</h1>
 
-      <div className="row-actions">
+      <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
           + Add client
         </button>
