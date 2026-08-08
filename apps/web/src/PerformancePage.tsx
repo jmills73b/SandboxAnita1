@@ -143,29 +143,23 @@ export function currentYearToDateSummary(
   return { actual, target: monthlyTarget * monthKeys.length };
 }
 
-// Grouped by invoice date (when the work was billed, i.e. "earned") and
-// current status, regardless of the paid/all toggle above -- the whole
-// point of this breakdown is to show what's still moving through the
-// pipeline, so it always needs every stage, not just the ones the
-// current display mode happens to count as "income" yet.
-function invoicesByStatusMonth(invoices: Invoice[]): Map<string, Map<string, { amount: number; count: number }>> {
-  const result = new Map<string, Map<string, { amount: number; count: number }>>();
+// A snapshot of what's currently sitting in the pipeline, not a
+// month-by-month history -- ignores the paid/all toggle and the selected
+// tax year entirely, same reasoning as YearOverYearSection below: "how
+// much is owed to me right now" doesn't care which month or tax year an
+// invoice was originally raised in. Complete invoices are already
+// collected, so they're excluded rather than diluting the one thing this
+// view exists to answer.
+function outstandingByStatus(invoices: Invoice[]): Map<string, { amount: number; count: number }> {
+  const result = new Map<string, { amount: number; count: number }>();
   for (const invoice of invoices) {
-    const monthKey = taxMonthKey(invoice.invoiceDate);
-    const monthMap = result.get(monthKey) ?? new Map<string, { amount: number; count: number }>();
-    const entry = monthMap.get(invoice.status) ?? { amount: 0, count: 0 };
+    if (invoice.status === "Complete") continue;
+    const entry = result.get(invoice.status) ?? { amount: 0, count: 0 };
     entry.amount += invoice.anitaIncome;
     entry.count += 1;
-    monthMap.set(invoice.status, entry);
-    result.set(monthKey, monthMap);
+    result.set(invoice.status, entry);
   }
   return result;
-}
-
-function monthStatusTotal(monthMap: Map<string, { amount: number; count: number }> | undefined): number {
-  let total = 0;
-  for (const entry of monthMap?.values() ?? []) total += entry.amount;
-  return total;
 }
 
 function targetStatusClass(actual: number, target: number): string {
@@ -390,6 +384,8 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
         </p>
       )}
 
+      {!loading && !error && <OutstandingByStatusSection invoices={invoices} />}
+
       {!loading && !error && <YearOverYearSection invoices={invoices} mode={mode} />}
     </>
   );
@@ -482,9 +478,6 @@ function PerformanceSummary({
       </div>
 
       <IncomeChart monthKeys={monthKeys} monthlyTotals={monthlyTotals} target={target} />
-
-      <p className="settings-section-title">Income by status</p>
-      <IncomeByStatusChart invoices={invoices} monthKeys={monthKeys} />
 
       <div className="table-scroll">
         <table className="ledger compact-table">
@@ -661,73 +654,63 @@ function IncomeChart({
   );
 }
 
+// Every stage except Complete -- that one's already collected, so it
+// isn't "outstanding" by definition.
+const OUTSTANDING_STATUSES = INVOICE_STATUSES.filter((status) => status !== "Complete");
+
 // Segment shades follow the same solid-ink-means-done convention as the
 // status pill on each invoice row (see InvoicesPage.tsx) rather than
-// hue -- this app doesn't colour-code by hue anywhere else, so a rainbow
-// stacked bar here would be the odd one out. Pipeline order (earliest
-// stage first) doubles as the shade ramp: lightest/least-done at the
-// bottom, solid ink/Complete on top.
-function IncomeByStatusChart({ invoices, monthKeys }: { invoices: Invoice[]; monthKeys: string[] }) {
-  const [activeSegment, setActiveSegment] = useState<{ monthKey: string; status: string } | null>(null);
-
-  const statusByMonth = invoicesByStatusMonth(invoices);
-  const maxValue = Math.max(1, ...monthKeys.map((key) => monthStatusTotal(statusByMonth.get(key))));
-  const activeEntry = activeSegment ? statusByMonth.get(activeSegment.monthKey)?.get(activeSegment.status) : undefined;
-
-  function segmentLabel(monthKey: string, status: string, amount: number, count: number): string {
-    return `${monthLabel(monthKey)} · ${status}: ${money.format(amount)} (${count} invoice${count === 1 ? "" : "s"})`;
-  }
+// hue -- this app doesn't colour-code by hue anywhere else. Every amount
+// is shown outright rather than behind a hover/tap, since there's no
+// month dimension left to declutter -- a handful of numbers is the whole
+// point of the view, not something to hide behind an interaction.
+function OutstandingByStatusSection({ invoices }: { invoices: Invoice[] }) {
+  const byStatus = outstandingByStatus(invoices);
+  const total = OUTSTANDING_STATUSES.reduce((sum, status) => sum + (byStatus.get(status)?.amount ?? 0), 0);
 
   return (
-    <div className="income-chart-wrap">
-      <div className="status-chart">
-        {monthKeys.map((key) => {
-          const monthMap = statusByMonth.get(key);
-          const total = monthStatusTotal(monthMap);
-          return (
-            <div className="status-chart-bar" key={key} style={{ height: `${(total / maxValue) * 100}%` }}>
-              {INVOICE_STATUSES.map((status) => {
-                const entry = monthMap?.get(status);
-                if (!entry) return null;
-                const isActive = activeSegment?.monthKey === key && activeSegment.status === status;
-                return (
-                  <button
-                    type="button"
-                    key={status}
-                    className={`status-chart-segment status-chart-fill-${statusClass(status)} ${isActive ? "active" : ""}`}
-                    style={{ flex: entry.amount }}
-                    title={segmentLabel(key, status, entry.amount, entry.count)}
-                    onMouseEnter={() => setActiveSegment({ monthKey: key, status })}
-                    onFocus={() => setActiveSegment({ monthKey: key, status })}
-                    onMouseLeave={() => setActiveSegment(null)}
-                    onClick={() => setActiveSegment({ monthKey: key, status })}
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
-      </div>
-      <div className="income-chart-labels">
-        {monthKeys.map((key) => (
-          <div className="income-chart-label" key={key}>
-            {monthAbbrev(key)}
+    <div className="yoy-section">
+      <p className="settings-section-title">Outstanding by status</p>
+      {total <= 0 ? (
+        <p className="empty">Nothing outstanding — every invoice has been paid in full.</p>
+      ) : (
+        <>
+          <div className="outstanding-bar">
+            {OUTSTANDING_STATUSES.map((status) => {
+              const entry = byStatus.get(status);
+              if (!entry) return null;
+              return (
+                <div
+                  key={status}
+                  className={`outstanding-bar-segment status-chart-fill-${statusClass(status)}`}
+                  style={{ flex: entry.amount }}
+                />
+              );
+            })}
           </div>
-        ))}
-      </div>
-      <div className="yoy-legend">
-        {INVOICE_STATUSES.map((status) => (
-          <span className="yoy-legend-item" key={status}>
-            <span className={`status-chart-swatch status-chart-fill-${statusClass(status)}`} />
-            {status}
-          </span>
-        ))}
-      </div>
-      <p className="chart-caption">
-        {activeSegment && activeEntry
-          ? segmentLabel(activeSegment.monthKey, activeSegment.status, activeEntry.amount, activeEntry.count)
-          : "Tap or hover a segment for the exact amount and invoice count."}
-      </p>
+          <dl className="outstanding-breakdown">
+            {OUTSTANDING_STATUSES.map((status) => {
+              const entry = byStatus.get(status);
+              if (!entry) return null;
+              return (
+                <div className="outstanding-breakdown-row" key={status}>
+                  <dt>
+                    <span className={`status-chart-swatch status-chart-fill-${statusClass(status)}`} />
+                    {status}
+                  </dt>
+                  <dd>
+                    {money.format(entry.amount)}{" "}
+                    <span className="outstanding-count">
+                      ({entry.count} invoice{entry.count === 1 ? "" : "s"})
+                    </span>
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+          <p className="chart-caption">Total outstanding: {money.format(total)}</p>
+        </>
+      )}
     </div>
   );
 }

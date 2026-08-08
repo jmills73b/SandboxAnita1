@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@sandboxanita1/core";
-import { addClient, getClientCategories, getClients, updateClient, type Client, type ClientCategory } from "./api";
+import {
+  addClient,
+  deleteClient,
+  getClientCategories,
+  getClients,
+  updateClient,
+  type Client,
+  type ClientCategory,
+} from "./api";
 import { ClientNotesPage } from "./ClientNotesPage";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 
@@ -200,6 +208,17 @@ export function ClientsPage({
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't update that client's status");
+    }
+  }
+
+  async function handleDelete(client: Client) {
+    if (!window.confirm(`Delete "${client.name}"? This can't be undone.`)) return;
+    setError(null);
+    try {
+      await deleteClient(client.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that client");
     }
   }
 
@@ -498,6 +517,9 @@ export function ClientsPage({
                       </button>
                       <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
                         Notes
+                      </button>
+                      <button type="button" className="danger" onClick={() => handleDelete(client)}>
+                        Delete
                       </button>
                     </div>
                   </td>
