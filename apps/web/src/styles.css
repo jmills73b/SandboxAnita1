@@ -620,6 +620,22 @@ table.compact-table {
   cursor: pointer;
 }
 
+/* Client case status reuses the exact same fill/outline/dashed convention
+   as invoice status above: Closed = solid ink, done. Prospective = not a
+   real engagement yet, dashed and faint. Active needs no rule of its own
+   -- the base .status pill's plain outline already reads as "current,
+   still moving", same as invoice status's in-between states. */
+.status-closed {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.status-prospective {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1302,6 +1318,77 @@ button.secondary {
   margin: 10px 0 0;
 }
 
+/* Income-by-status: a stacked bar per month, one segment per stage of the
+   invoice lifecycle. Segments follow the status pill's own solid-ink =
+   done convention (see .status-* above) instead of hue — this app never
+   colour-codes by hue, so the shade ramp runs from faintest (In progress,
+   least done) to solid ink (Complete, done), same reasoning as the
+   year-over-year chart's tone ramp below. */
+.status-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  border-bottom: 1px solid var(--ink);
+}
+
+.status-chart-bar {
+  flex: 1;
+  min-width: 14px;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+.status-chart-segment {
+  appearance: none;
+  width: 100%;
+  min-height: 3px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-bottom: 1px solid var(--paper);
+  cursor: pointer;
+}
+
+.status-chart-segment:last-child {
+  border-bottom: none;
+}
+
+.status-chart-segment:hover,
+.status-chart-segment:focus-visible,
+.status-chart-segment.active {
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.status-chart-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+}
+
+.status-chart-fill-status-in-progress {
+  background: var(--line);
+}
+
+.status-chart-fill-status-awaiting-client-payment {
+  background: var(--line-strong);
+}
+
+.status-chart-fill-status-paid-to-newmans {
+  background: var(--ink-faint);
+}
+
+.status-chart-fill-status-awaiting-payment-to-anita {
+  background: var(--ink-soft);
+}
+
+.status-chart-fill-status-complete {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
 /* Year-over-year comparison chart — a multi-line "emphasis" chart: the
    current tax year in full ink, prior years fading toward --ink-faint, so
    the reader's eye lands on this year first without a separate accent
@@ -1495,6 +1582,14 @@ button.secondary {
 
 .hero-tile.upcoming .tile-desc {
   color: var(--ink-faint);
+}
+
+.tile-stat {
+  font-size: 12.5px;
+  margin-top: 6px;
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .tile-status {

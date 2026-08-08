@@ -1,6 +1,13 @@
 import { Fragment, useEffect, useState, type FormEvent } from "react";
-import { currentTaxYearStartYear, recentTaxYearStartYears, taxMonthKey, taxYearLabel } from "@sandboxanita1/core";
+import {
+  currentTaxYearStartYear,
+  INVOICE_STATUSES,
+  recentTaxYearStartYears,
+  taxMonthKey,
+  taxYearLabel,
+} from "@sandboxanita1/core";
 import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
+import { statusClass } from "./InvoicesPage";
 
 // A thin line at low contrast is fine for a background gridline, but a
 // *data* line needs to survive being read on its own — only these three
@@ -118,6 +125,47 @@ function invoicesByMonth(invoices: Invoice[], mode: PerformanceMode): Map<string
 
 function monthTotal(monthInvoices: Invoice[] | undefined): number {
   return (monthInvoices ?? []).reduce((sum, invoice) => sum + invoice.anitaIncome, 0);
+}
+
+// Same "money paid" calculation the Performance page itself shows for
+// "Year to date" — reused by the Dashboard hub tile so a glance at the
+// home screen matches what you'd see if you tapped in, rather than
+// keeping a second copy of the tax-month bucketing logic in sync by hand.
+export function currentYearToDateSummary(
+  invoices: Invoice[],
+  startYear: number,
+  monthlyTarget: number,
+): { actual: number; target: number } {
+  const isCurrentYear = startYear === currentTaxYearStartYear();
+  const monthGroups = invoicesByMonth(invoices, "paid");
+  const monthKeys = taxYearMonthKeys(startYear, isCurrentYear);
+  const actual = monthKeys.reduce((sum, key) => sum + monthTotal(monthGroups.get(key)), 0);
+  return { actual, target: monthlyTarget * monthKeys.length };
+}
+
+// Grouped by invoice date (when the work was billed, i.e. "earned") and
+// current status, regardless of the paid/all toggle above -- the whole
+// point of this breakdown is to show what's still moving through the
+// pipeline, so it always needs every stage, not just the ones the
+// current display mode happens to count as "income" yet.
+function invoicesByStatusMonth(invoices: Invoice[]): Map<string, Map<string, { amount: number; count: number }>> {
+  const result = new Map<string, Map<string, { amount: number; count: number }>>();
+  for (const invoice of invoices) {
+    const monthKey = taxMonthKey(invoice.invoiceDate);
+    const monthMap = result.get(monthKey) ?? new Map<string, { amount: number; count: number }>();
+    const entry = monthMap.get(invoice.status) ?? { amount: 0, count: 0 };
+    entry.amount += invoice.anitaIncome;
+    entry.count += 1;
+    monthMap.set(invoice.status, entry);
+    result.set(monthKey, monthMap);
+  }
+  return result;
+}
+
+function monthStatusTotal(monthMap: Map<string, { amount: number; count: number }> | undefined): number {
+  let total = 0;
+  for (const entry of monthMap?.values() ?? []) total += entry.amount;
+  return total;
 }
 
 function targetStatusClass(actual: number, target: number): string {
@@ -435,6 +483,9 @@ function PerformanceSummary({
 
       <IncomeChart monthKeys={monthKeys} monthlyTotals={monthlyTotals} target={target} />
 
+      <p className="settings-section-title">Income by status</p>
+      <IncomeByStatusChart invoices={invoices} monthKeys={monthKeys} />
+
       <div className="table-scroll">
         <table className="ledger compact-table">
           <thead>
@@ -606,6 +657,77 @@ function IncomeChart({
         ))}
       </div>
       <p className="chart-caption">Solid bar = target met that month · dashed line = monthly target</p>
+    </div>
+  );
+}
+
+// Segment shades follow the same solid-ink-means-done convention as the
+// status pill on each invoice row (see InvoicesPage.tsx) rather than
+// hue -- this app doesn't colour-code by hue anywhere else, so a rainbow
+// stacked bar here would be the odd one out. Pipeline order (earliest
+// stage first) doubles as the shade ramp: lightest/least-done at the
+// bottom, solid ink/Complete on top.
+function IncomeByStatusChart({ invoices, monthKeys }: { invoices: Invoice[]; monthKeys: string[] }) {
+  const [activeSegment, setActiveSegment] = useState<{ monthKey: string; status: string } | null>(null);
+
+  const statusByMonth = invoicesByStatusMonth(invoices);
+  const maxValue = Math.max(1, ...monthKeys.map((key) => monthStatusTotal(statusByMonth.get(key))));
+  const activeEntry = activeSegment ? statusByMonth.get(activeSegment.monthKey)?.get(activeSegment.status) : undefined;
+
+  function segmentLabel(monthKey: string, status: string, amount: number, count: number): string {
+    return `${monthLabel(monthKey)} · ${status}: ${money.format(amount)} (${count} invoice${count === 1 ? "" : "s"})`;
+  }
+
+  return (
+    <div className="income-chart-wrap">
+      <div className="status-chart">
+        {monthKeys.map((key) => {
+          const monthMap = statusByMonth.get(key);
+          const total = monthStatusTotal(monthMap);
+          return (
+            <div className="status-chart-bar" key={key} style={{ height: `${(total / maxValue) * 100}%` }}>
+              {INVOICE_STATUSES.map((status) => {
+                const entry = monthMap?.get(status);
+                if (!entry) return null;
+                const isActive = activeSegment?.monthKey === key && activeSegment.status === status;
+                return (
+                  <button
+                    type="button"
+                    key={status}
+                    className={`status-chart-segment status-chart-fill-${statusClass(status)} ${isActive ? "active" : ""}`}
+                    style={{ flex: entry.amount }}
+                    title={segmentLabel(key, status, entry.amount, entry.count)}
+                    onMouseEnter={() => setActiveSegment({ monthKey: key, status })}
+                    onFocus={() => setActiveSegment({ monthKey: key, status })}
+                    onMouseLeave={() => setActiveSegment(null)}
+                    onClick={() => setActiveSegment({ monthKey: key, status })}
+                  />
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+      <div className="income-chart-labels">
+        {monthKeys.map((key) => (
+          <div className="income-chart-label" key={key}>
+            {monthAbbrev(key)}
+          </div>
+        ))}
+      </div>
+      <div className="yoy-legend">
+        {INVOICE_STATUSES.map((status) => (
+          <span className="yoy-legend-item" key={status}>
+            <span className={`status-chart-swatch status-chart-fill-${statusClass(status)}`} />
+            {status}
+          </span>
+        ))}
+      </div>
+      <p className="chart-caption">
+        {activeSegment && activeEntry
+          ? segmentLabel(activeSegment.monthKey, activeSegment.status, activeEntry.amount, activeEntry.count)
+          : "Tap or hover a segment for the exact amount and invoice count."}
+      </p>
     </div>
   );
 }

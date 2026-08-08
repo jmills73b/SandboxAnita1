@@ -35,7 +35,7 @@ function isInTaxYear(dateStr: string, startYear: number): boolean {
   return dateStr >= taxYearStartDate(startYear) && dateStr < taxYearStartDate(startYear + 1);
 }
 
-function statusClass(status: string): string {
+export function statusClass(status: string): string {
   return `status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }
 
@@ -80,6 +80,11 @@ export function ClientPicker({
   autoFocus?: boolean;
 }) {
   const sortedClients = [...clients].sort((a, b) => a.name.localeCompare(b.name));
+  // Closed clients stay selectable (reopening one for a final bill is
+  // normal) but sit in their own group, out of the way of the day-to-day
+  // roster of prospective/active clients you're actually likely to bill.
+  const openClients = sortedClients.filter((c) => c.caseStatus !== "Closed");
+  const closedClients = sortedClients.filter((c) => c.caseStatus === "Closed");
   const fieldClass = compact ? "input-compact" : undefined;
 
   function switchMode(next: ClientMode) {
@@ -112,11 +117,20 @@ export function ClientPicker({
           <option value="" disabled>
             {sortedClients.length === 0 ? "No existing clients yet" : "Select a client…"}
           </option>
-          {sortedClients.map((client) => (
+          {openClients.map((client) => (
             <option key={client.id} value={client.name}>
               {client.name}
             </option>
           ))}
+          {closedClients.length > 0 && (
+            <optgroup label="Closed clients">
+              {closedClients.map((client) => (
+                <option key={client.id} value={client.name}>
+                  {client.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </select>
       ) : (
         <input
@@ -133,7 +147,17 @@ export function ClientPicker({
   );
 }
 
-export function InvoicesPage({ onBack }: { onBack: () => void }) {
+export function InvoicesPage({
+  onBack,
+  initialClientId,
+}: {
+  onBack: () => void;
+  // Set when arriving here via a client's own "Invoices" link (see
+  // ClientsPage) rather than the Invoice Management tile directly --
+  // opens straight to that client's invoice history instead of the full
+  // ledger.
+  initialClientId?: number;
+}) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [invoiceDate, setInvoiceDate] = useState(today());
@@ -145,7 +169,9 @@ export function InvoicesPage({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<View>({ kind: "ledger" });
+  const [view, setView] = useState<View>(
+    initialClientId !== undefined ? { kind: "client", clientId: initialClientId } : { kind: "ledger" },
+  );
   const [editDate, setEditDate] = useState("");
   const [editClientMode, setEditClientMode] = useState<ClientMode>("existing");
   const [editClientName, setEditClientName] = useState("");

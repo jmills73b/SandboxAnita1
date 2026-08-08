@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@sandboxanita1/core";
 import { addClient, getClientCategories, getClients, updateClient, type Client, type ClientCategory } from "./api";
 import { ClientNotesPage } from "./ClientNotesPage";
 import { MarkdownToolbar } from "./MarkdownToolbar";
+
+function caseStatusClass(status: string): string {
+  return `status-${status.toLowerCase()}`;
+}
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -44,7 +49,13 @@ function CategoryChips({
 
 type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "notes"; id: number };
 
-export function ClientsPage({ onBack }: { onBack: () => void }) {
+export function ClientsPage({
+  onBack,
+  onViewInvoices,
+}: {
+  onBack: () => void;
+  onViewInvoices: (clientId: number) => void;
+}) {
   const [clients, setClients] = useState<Client[]>([]);
   const [categories, setCategories] = useState<ClientCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,17 +67,20 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
   const [email, setEmail] = useState("");
   const [summary, setSummary] = useState("");
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
+  const [caseStatus, setCaseStatus] = useState<ClientCaseStatus>("Prospective");
   const [submitting, setSubmitting] = useState(false);
 
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editSummary, setEditSummary] = useState("");
   const [editCategoryIds, setEditCategoryIds] = useState<number[]>([]);
+  const [editCaseStatus, setEditCaseStatus] = useState<ClientCaseStatus>("Prospective");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const summaryRef = useRef<HTMLTextAreaElement>(null);
   const editSummaryRef = useRef<HTMLTextAreaElement>(null);
@@ -101,6 +115,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     setEmail("");
     setSummary("");
     setCategoryIds([]);
+    setCaseStatus("Prospective");
     setError(null);
     setMode({ kind: "add" });
   }
@@ -127,6 +142,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         email: email.trim() || null,
         summary: summary.trim() || null,
         categoryIds,
+        caseStatus,
       });
       setMode({ kind: "list" });
       await refresh();
@@ -142,6 +158,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     setEditEmail(client.email ?? "");
     setEditSummary(client.summary ?? "");
     setEditCategoryIds(client.categories.map((c) => c.id));
+    setEditCaseStatus(client.caseStatus);
     setEditError(null);
     setMode({ kind: "edit", id: client.id });
   }
@@ -166,6 +183,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
         email: editEmail.trim() || null,
         summary: editSummary.trim() || null,
         categoryIds: editCategoryIds,
+        caseStatus: editCaseStatus,
       });
       setMode({ kind: "list" });
       await refresh();
@@ -176,10 +194,20 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
     }
   }
 
+  async function handleCaseStatusChange(client: Client, nextStatus: string) {
+    try {
+      await updateClient(client.id, { caseStatus: nextStatus as ClientCaseStatus });
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't update that client's status");
+    }
+  }
+
   const trimmedSearch = search.trim().toLowerCase();
   const filteredClients = clients.filter(
     (client) =>
       (categoryFilter === "all" || client.categories.some((c) => String(c.id) === categoryFilter)) &&
+      (statusFilter === "all" || client.caseStatus === statusFilter) &&
       (client.name.toLowerCase().includes(trimmedSearch) ||
         (client.email ?? "").toLowerCase().includes(trimmedSearch)),
   );
@@ -212,6 +240,20 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
               />
+            </label>
+            <label className="edit-field">
+              <span>Case status</span>
+              <select
+                className="input-compact"
+                value={caseStatus}
+                onChange={(event) => setCaseStatus(event.target.value as ClientCaseStatus)}
+              >
+                {CLIENT_CASE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <div className="edit-field">
@@ -270,6 +312,20 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                 value={editEmail}
                 onChange={(event) => setEditEmail(event.target.value)}
               />
+            </label>
+            <label className="edit-field">
+              <span>Case status</span>
+              <select
+                className="input-compact"
+                value={editCaseStatus}
+                onChange={(event) => setEditCaseStatus(event.target.value as ClientCaseStatus)}
+              >
+                {CLIENT_CASE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
           <div className="edit-field">
@@ -363,6 +419,21 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
               </option>
             ))}
           </select>
+          <label className="sr-only" htmlFor="client-status-filter">
+            Filter by case status
+          </label>
+          <select
+            id="client-status-filter"
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+          >
+            <option value="all">All statuses</option>
+            {CLIENT_CASE_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
         </div>
       )}
 
@@ -381,6 +452,7 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                 <th>Email</th>
                 <th>Summary</th>
                 <th>Categories</th>
+                <th>Case status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -404,9 +476,25 @@ export function ClientsPage({ onBack }: { onBack: () => void }) {
                     )}
                   </td>
                   <td>
+                    <select
+                      className={`status status-select ${caseStatusClass(client.caseStatus)}`}
+                      value={client.caseStatus}
+                      onChange={(event) => handleCaseStatusChange(client, event.target.value)}
+                    >
+                      {CLIENT_CASE_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(client)}>
                         Edit
+                      </button>
+                      <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
+                        Invoices
                       </button>
                       <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
                         Notes
