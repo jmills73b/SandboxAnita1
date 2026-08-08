@@ -1,5 +1,12 @@
 import { Hono } from "hono";
-import { calculateAnitaIncome, INVOICE_STATUSES, isValidInvoiceStatus } from "@sandboxanita1/core";
+import {
+  calculateAnitaIncome,
+  currentTaxYearStartYear,
+  DEFAULT_SPLIT_PERCENTAGE,
+  INVOICE_STATUSES,
+  isValidInvoiceStatus,
+  taxYearLabel,
+} from "@sandboxanita1/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 
@@ -52,6 +59,21 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The split % (story 8.4) is configurable per tax year, and anita_income is
+// computed once and stored, not recalculated live -- so an invoice always
+// keeps the rate that was in force for the tax year it actually falls in,
+// even after the setting is later changed for a different year. Falls back
+// to the default rather than 400ing when a year has no explicit setting,
+// same as every other per-year rate in this app.
+async function splitPercentageFor(db: D1Database, invoiceDate: string): Promise<number> {
+  const label = taxYearLabel(currentTaxYearStartYear(new Date(invoiceDate)));
+  const row = await db
+    .prepare("SELECT split_percentage FROM tax_year_settings WHERE tax_year = ?")
+    .bind(label)
+    .first<{ split_percentage: number | null }>();
+  return row?.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE;
+}
+
 invoices.get("/", async (c) => {
   const { results } = await c.env.DB.prepare(
     `SELECT invoices.id, invoices.invoice_date, invoices.client_id, clients.name AS client_name,
@@ -90,7 +112,7 @@ invoices.post("/", async (c) => {
     id: number;
   }>();
 
-  const anitaIncome = calculateAnitaIncome(totalAmount);
+  const anitaIncome = calculateAnitaIncome(totalAmount, await splitPercentageFor(c.env.DB, invoiceDate));
 
   const created = await c.env.DB.prepare(
     `INSERT INTO invoices (client_id, firm_id, invoice_date, total_amount, anita_income, reference, matter)
@@ -154,7 +176,10 @@ invoices.patch("/:id", async (c) => {
   const reference = body.reference !== undefined ? body.reference : existing.reference;
   const matter = body.matter !== undefined ? body.matter : existing.matter;
   const status = body.status ?? existing.status;
-  const anitaIncome = body.totalAmount !== undefined ? calculateAnitaIncome(totalAmount) : existing.anita_income;
+  const anitaIncome =
+    body.totalAmount !== undefined
+      ? calculateAnitaIncome(totalAmount, await splitPercentageFor(c.env.DB, invoiceDate))
+      : existing.anita_income;
 
   // Settlement dates default to tracking the status — reaching a stage for
   // the first time stamps it with today, and stepping back below a stage

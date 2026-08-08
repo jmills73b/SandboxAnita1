@@ -107,6 +107,7 @@ taxYearSettings.post("/:startYear", async (c) => {
 });
 
 interface RatesInput {
+  splitPercentage?: number;
   personalAllowance?: number;
   basicRate?: number;
   basicRateThreshold?: number;
@@ -122,6 +123,7 @@ interface RatesInput {
 
 function validateRates(input: RatesInput): string | null {
   const {
+    splitPercentage,
     personalAllowance,
     basicRate,
     basicRateThreshold,
@@ -136,6 +138,7 @@ function validateRates(input: RatesInput): string | null {
   } = input;
 
   const values = [
+    splitPercentage,
     personalAllowance,
     basicRate,
     basicRateThreshold,
@@ -151,7 +154,7 @@ function validateRates(input: RatesInput): string | null {
   if (values.some((v) => typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
     return "All rates and thresholds are required and must be zero or more";
   }
-  const rates = [basicRate, higherRate, additionalRate, niLowerRate, niUpperRate];
+  const rates = [splitPercentage, basicRate, higherRate, additionalRate, niLowerRate, niUpperRate];
   if (rates.some((r) => (r as number) > 1)) {
     return "Rates should be entered as a decimal fraction (e.g. 0.2 for 20%), not a percentage";
   }
@@ -195,6 +198,7 @@ taxYearSettings.put("/:startYear/rates", async (c) => {
      )
      VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(tax_year) DO UPDATE SET
+       split_percentage = excluded.split_percentage,
        personal_allowance = excluded.personal_allowance,
        basic_rate = excluded.basic_rate,
        basic_rate_threshold = excluded.basic_rate_threshold,
@@ -211,7 +215,7 @@ taxYearSettings.put("/:startYear/rates", async (c) => {
     .bind(
       label,
       startDate,
-      DEFAULT_SPLIT_PERCENTAGE,
+      input.splitPercentage,
       input.personalAllowance,
       input.basicRate,
       input.basicRateThreshold,

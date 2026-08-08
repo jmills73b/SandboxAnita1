@@ -191,7 +191,10 @@ export function setTaxYearTarget(startYear: number, monthlyTarget: number): Prom
   });
 }
 
-export function setTaxYearRates(startYear: number, rates: Record<keyof TaxRates, number>): Promise<TaxYearSettings> {
+export function setTaxYearRates(
+  startYear: number,
+  rates: Record<keyof TaxRates, number> & { splitPercentage: number },
+): Promise<TaxYearSettings> {
   return request(`/api/tax-year-settings/${startYear}/rates`, {
     method: "PUT",
     body: JSON.stringify(rates),

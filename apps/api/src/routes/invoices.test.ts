@@ -23,6 +23,9 @@ function fakeEnv(
     firmId?: number | null;
     existingInvoice?: Record<string, unknown> | null;
     deleteChanges?: number;
+    // tax year label (e.g. "2026/27") -> configured split percentage,
+    // for exercising splitPercentageFor's per-year lookup.
+    taxYearSplits?: Record<string, number>;
   } = {},
 ): Env {
   const listRows = options.listRows ?? [];
@@ -30,6 +33,7 @@ function fakeEnv(
   const firmId = options.firmId === undefined ? 1 : options.firmId;
   const existingInvoice = options.existingInvoice;
   const deleteChanges = options.deleteChanges ?? 1;
+  const taxYearSplits = options.taxYearSplits ?? {};
 
   return {
     SESSION_SECRET: SECRET,
@@ -42,6 +46,10 @@ function fakeEnv(
             return statement;
           },
           first: async <T,>() => {
+            if (sql.includes("SELECT split_percentage FROM tax_year_settings")) {
+              const [taxYear] = boundArgs as [string];
+              return (taxYear in taxYearSplits ? { split_percentage: taxYearSplits[taxYear] } : null) as T;
+            }
             if (sql.includes("FROM intermediary_firms")) {
               return (firmId === null ? null : { id: firmId }) as T;
             }
@@ -231,6 +239,36 @@ describe("POST /api/invoices", () => {
     expect(body.clientName).toBe("Smith");
     expect(body.status).toBe("In progress");
   });
+
+  it("uses the split percentage configured for the invoice's own tax year", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ invoiceDate: "2026-05-01", clientId: 1, totalAmount: 1000 }),
+      },
+      fakeEnv({ taxYearSplits: { "2026/27": 0.6 } }),
+    );
+    expect(res.status).toBe(201);
+    expect((await res.json()).anitaIncome).toBeCloseTo(600, 2);
+  });
+
+  it("falls back to the default split when the invoice's tax year has no configured split", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ invoiceDate: "2025-05-01", clientId: 1, totalAmount: 1000 }),
+      },
+      fakeEnv({ taxYearSplits: { "2026/27": 0.6 } }),
+    );
+    expect(res.status).toBe(201);
+    expect((await res.json()).anitaIncome).toBeCloseTo(750, 2);
+  });
 });
 
 const EXISTING_INVOICE = {
@@ -349,6 +387,36 @@ describe("PATCH /api/invoices/:id", () => {
     );
     const body = await res.json();
     expect(body.anitaIncome).toBeCloseTo(1500, 2);
+  });
+
+  it("recalculates using the split configured for the invoice's own tax year (2026-04-01 falls in 2025/26, before the 6 April cutoff)", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ totalAmount: 2000 }) },
+      fakeEnv({
+        existingInvoice: EXISTING_INVOICE,
+        clientName: "Smith",
+        taxYearSplits: { "2025/26": 0.5 },
+      }),
+    );
+    const body = await res.json();
+    expect(body.anitaIncome).toBeCloseTo(1000, 2);
+  });
+
+  it("does not recalculate anitaIncome (or look up a split) when the amount isn't changing", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoices/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ status: "Complete" }) },
+      fakeEnv({
+        existingInvoice: EXISTING_INVOICE,
+        clientName: "Smith",
+        taxYearSplits: { "2025/26": 0.1 },
+      }),
+    );
+    const body = await res.json();
+    expect(body.anitaIncome).toBeCloseTo(EXISTING_INVOICE.anita_income, 2);
   });
 
   it("accepts an explicit settlement date, overriding the automatic today-stamp", async () => {
