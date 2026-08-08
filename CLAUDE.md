@@ -56,3 +56,27 @@ them out.
 If a new feature doesn't fit one of these patterns, that's fine — but say so
 explicitly (in the PR description or to the user) rather than silently skipping it,
 so a deliberate exception doesn't read as a missed one later.
+
+## Keeping docs/ARCHITECTURE.md and README.md current
+
+These are only useful if they match the code. Update them **in the same commit/PR**
+as the change that makes them stale, not as a separate later pass — a docs update
+queued for "later" is a docs update that doesn't happen. Concretely, touch the doc
+when a change:
+
+- adds/removes/renames an API route, DB table, or migration → update the relevant
+  table in `docs/ARCHITECTURE.md`
+- adds/removes a dashboard tile or admin sub-panel → update the tile table and/or the
+  frontend file inventory
+- adds a new reusable CSS class/token, or changes the theme system → update the
+  Design System section
+- changes the auth model, deployment pipeline, or Cloudflare bindings → update the
+  relevant section
+- changes overall app status (e.g. goes live, environment strategy changes) →
+  update `README.md`'s Status section
+
+A change that's genuinely internal (bug fix, refactor with no external-facing
+change, test-only change) doesn't need a docs update — don't touch the docs just to
+have touched them. When in doubt about whether something is doc-worthy, err toward
+updating; a stale doc is worse than no doc, since it's actively misleading rather
+than just absent.
