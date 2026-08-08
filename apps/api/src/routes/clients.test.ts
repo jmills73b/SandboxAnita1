@@ -15,6 +15,7 @@ interface StoredClient {
   email: string | null;
   summary: string | null;
   first_invoice_date: string | null;
+  case_status?: string;
 }
 
 function fakeEnv(
@@ -49,19 +50,19 @@ function fakeEnv(
           },
           first: async <T,>() => {
             if (sql.includes("INSERT INTO clients")) {
-              const [name, email, summary] = boundArgs as [string, string | null, string | null];
+              const [name, email, summary, caseStatus] = boundArgs as [string, string | null, string | null, string];
               const id = nextId++;
-              clientStore.set(id, { id, name, email, summary, first_invoice_date: null });
+              clientStore.set(id, { id, name, email, summary, first_invoice_date: null, case_status: caseStatus });
               return { id } as T;
             }
-            if (sql.includes("SELECT id, name, email, summary, first_invoice_date FROM clients WHERE id = ?")) {
+            if (sql.includes("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients WHERE id = ?")) {
               const [id] = boundArgs as [number];
               return (clientStore.get(id) ?? null) as T;
             }
             return null;
           },
           all: async <T,>() => {
-            if (sql.includes("SELECT id, name, email, summary, first_invoice_date FROM clients ORDER BY name")) {
+            if (sql.includes("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients ORDER BY name")) {
               const rows = [...clientStore.values()].sort((a, b) => a.name.localeCompare(b.name));
               return { results: rows as T[], success: true, meta: {} };
             }
@@ -82,9 +83,15 @@ function fakeEnv(
           },
           run: async () => {
             if (sql.includes("UPDATE clients SET name")) {
-              const [name, email, summary, id] = boundArgs as [string, string | null, string | null, number];
+              const [name, email, summary, caseStatus, id] = boundArgs as [
+                string,
+                string | null,
+                string | null,
+                string,
+                number,
+              ];
               const existing = clientStore.get(id);
-              if (existing) clientStore.set(id, { ...existing, name, email, summary });
+              if (existing) clientStore.set(id, { ...existing, name, email, summary, case_status: caseStatus });
             }
             if (sql.includes("DELETE FROM client_category_links WHERE client_id = ?")) {
               const [clientId] = boundArgs as [number];
@@ -184,6 +191,7 @@ describe("POST /api/clients", () => {
       email: null,
       summary: null,
       first_invoice_date: null,
+      caseStatus: "Prospective",
       categories: [],
     });
   });
@@ -212,6 +220,36 @@ describe("POST /api/clients", () => {
       { id: 1, name: "Financial Remedy" },
       { id: 2, name: "High Net Worth" },
     ]);
+  });
+
+  it("defaults case status to Prospective when not specified", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Smith" }) },
+      fakeEnv(),
+    );
+    expect((await res.json()).caseStatus).toBe("Prospective");
+  });
+
+  it("accepts an explicit valid case status", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Smith", caseStatus: "Active" }) },
+      fakeEnv(),
+    );
+    expect((await res.json()).caseStatus).toBe("Active");
+  });
+
+  it("rejects an invalid case status", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Smith", caseStatus: "Retired" }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
   });
 });
 
@@ -259,5 +297,34 @@ describe("PATCH /api/clients/:id", () => {
     const body = await res.json();
     expect(body.name).toBe("Renamed");
     expect(body.categories).toEqual([{ id: 1, name: "Financial Remedy" }]);
+  });
+
+  it("updates case status", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ caseStatus: "Closed" }) },
+      fakeEnv({
+        clients: [
+          { id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null, case_status: "Active" },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).caseStatus).toBe("Closed");
+  });
+
+  it("rejects an invalid case status", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ caseStatus: "Retired" }) },
+      fakeEnv({
+        clients: [
+          { id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null, case_status: "Active" },
+        ],
+      }),
+    );
+    expect(res.status).toBe(400);
   });
 });

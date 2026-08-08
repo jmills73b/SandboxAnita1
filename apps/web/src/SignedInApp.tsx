@@ -19,7 +19,12 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-type Screen = { kind: "hub" } | { kind: DashboardTile };
+// clientId only ever matters for the "invoices" screen -- set when a
+// client's own "Invoices" link (see ClientsPage) jumps straight to their
+// history instead of the full ledger. Kept optional on every variant
+// rather than a separate union member so tile navigation (Dashboard's
+// onSelect) doesn't need to know which tiles do and don't carry one.
+type Screen = { kind: "hub" } | { kind: DashboardTile; clientId?: number };
 
 export function SignedInApp({
   email,
@@ -124,13 +129,15 @@ export function SignedInApp({
       {screen.kind === "hub" && (
         <Dashboard onSelect={(tile) => setScreen({ kind: tile })} disabledFeatures={disabledFeatures} />
       )}
-      {screen.kind === "invoices" && <InvoicesPage onBack={goHome} />}
+      {screen.kind === "invoices" && <InvoicesPage onBack={goHome} initialClientId={screen.clientId} />}
       {screen.kind === "performance" && <PerformancePage onBack={goHome} />}
       {screen.kind === "invoice-generator" && <InvoiceGeneratorPage onBack={goHome} />}
       {screen.kind === "expenses" && <ExpensesPage onBack={goHome} />}
       {screen.kind === "tax" && <TaxPage onBack={goHome} />}
       {screen.kind === "time" && <TimeKeepingPage onBack={goHome} />}
-      {screen.kind === "clients" && <ClientsPage onBack={goHome} />}
+      {screen.kind === "clients" && (
+        <ClientsPage onBack={goHome} onViewInvoices={(clientId) => setScreen({ kind: "invoices", clientId })} />
+      )}
       {screen.kind === "tasks" && <TasksPage onBack={goHome} />}
       {screen.kind === "admin" && <AdminPage onBack={goHome} onDisabledFeaturesChange={setDisabledFeatures} />}
     </main>

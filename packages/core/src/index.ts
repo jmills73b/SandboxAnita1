@@ -8,6 +8,8 @@ export {
 export type { SessionPayload } from "./auth";
 export { INVOICE_STATUSES, isValidInvoiceStatus } from "./invoiceStatus";
 export type { InvoiceStatus } from "./invoiceStatus";
+export { CLIENT_CASE_STATUSES, isValidClientCaseStatus } from "./clientCaseStatus";
+export type { ClientCaseStatus } from "./clientCaseStatus";
 export {
   currentTaxYear,
   currentTaxYearStartYear,

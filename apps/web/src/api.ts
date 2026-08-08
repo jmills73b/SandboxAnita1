@@ -1,3 +1,5 @@
+import type { ClientCaseStatus } from "@sandboxanita1/core";
+
 // Every call goes to the Worker API on its own domain, so credentials:
 // "include" is required for the session cookie to be sent — plain
 // same-origin defaults won't do that.
@@ -14,6 +16,7 @@ export interface Client {
   email: string | null;
   summary: string | null;
   first_invoice_date: string | null;
+  caseStatus: ClientCaseStatus;
   categories: ClientCategory[];
 }
 
@@ -65,13 +68,20 @@ export function addClient(input: {
   email?: string | null;
   summary?: string | null;
   categoryIds?: number[];
+  caseStatus?: ClientCaseStatus;
 }): Promise<Client> {
   return request("/api/clients", { method: "POST", body: JSON.stringify(input) });
 }
 
 export function updateClient(
   id: number,
-  patch: Partial<{ name: string; email: string | null; summary: string | null; categoryIds: number[] }>,
+  patch: Partial<{
+    name: string;
+    email: string | null;
+    summary: string | null;
+    categoryIds: number[];
+    caseStatus: ClientCaseStatus;
+  }>,
 ): Promise<Client> {
   return request(`/api/clients/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }

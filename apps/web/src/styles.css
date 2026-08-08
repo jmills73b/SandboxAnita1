@@ -620,6 +620,22 @@ table.compact-table {
   cursor: pointer;
 }
 
+/* Client case status reuses the exact same fill/outline/dashed convention
+   as invoice status above: Closed = solid ink, done. Prospective = not a
+   real engagement yet, dashed and faint. Active needs no rule of its own
+   -- the base .status pill's plain outline already reads as "current,
+   still moving", same as invoice status's in-between states. */
+.status-closed {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.status-prospective {
+  border-style: dashed;
+  border-color: var(--line-strong);
+  color: var(--ink-faint);
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
