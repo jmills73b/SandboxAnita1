@@ -1161,6 +1161,11 @@ button.secondary {
   font-variant-numeric: tabular-nums;
 }
 
+.stat-group-figures .status {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 .stat-actual {
   font-family: var(--display);
   font-weight: 600;

@@ -442,17 +442,11 @@ function PerformanceSummary({
   const thisMonthKey = currentMonthKey();
   const thisMonthActual = monthlyTotals.get(thisMonthKey) ?? 0;
 
-  const headlineActual = isCurrentYear ? thisMonthActual : yearActual;
-  const headlineTarget = isCurrentYear ? target : yearTarget;
-
   return (
     <>
       <div className="client-header">
         <div className="performance-heading">
           <h2>{taxYear}</h2>
-          <span className={`status ${targetStatusClass(headlineActual, headlineTarget)}`}>
-            {targetStatusLabel(headlineActual, headlineTarget, isCurrentYear)}
-          </span>
           <span className="target-line">
             Target <strong>{money.format(target)}</strong>/month
           </span>
@@ -468,12 +462,15 @@ function PerformanceSummary({
             label={`This month (${monthLabel(thisMonthKey)})`}
             actual={thisMonthActual}
             target={target}
+            showStatus
+            pending
           />
         )}
         <StatWithBar
           label={isCurrentYear ? "Year to date" : "Full year"}
           actual={yearActual}
           target={yearTarget}
+          showStatus={!isCurrentYear}
         />
       </div>
 
@@ -594,7 +591,24 @@ function MonthBreakdown({ invoices, mode }: { invoices: Invoice[]; mode: Perform
   );
 }
 
-function StatWithBar({ label, actual, target }: { label: string; actual: number; target: number }) {
+function StatWithBar({
+  label,
+  actual,
+  target,
+  showStatus,
+  pending,
+}: {
+  label: string;
+  actual: number;
+  target: number;
+  // The headline "Target met / Below target / No income (yet)" pill used
+  // to sit next to the tax year heading, but it only ever reflected one
+  // of the two figures below (this month for the current year, the full
+  // year for a past one) -- putting it directly on that figure instead
+  // makes which number it's judging unambiguous.
+  showStatus?: boolean;
+  pending?: boolean;
+}) {
   const pct = percentOfTarget(actual, target);
 
   return (
@@ -603,6 +617,11 @@ function StatWithBar({ label, actual, target }: { label: string; actual: number;
       <div className="stat-group-figures">
         <span className="stat-actual">{money.format(actual)}</span>
         <span className="stat-of"> of {money.format(target)}</span>
+        {showStatus && (
+          <span className={`status ${targetStatusClass(actual, target)}`}>
+            {targetStatusLabel(actual, target, pending ?? false)}
+          </span>
+        )}
       </div>
       <div className="progress-bar">
         <div className="progress-bar-fill" style={{ width: `${Math.min(pct, 100)}%` }} />
