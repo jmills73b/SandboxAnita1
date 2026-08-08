@@ -5,6 +5,8 @@ import {
   getClientCategories,
   getClientNotes,
   getClients,
+  getDeletedDocuments,
+  getDocumentCategories,
   getExpenseCategories,
   getExpenses,
   getFirms,
@@ -18,6 +20,8 @@ import {
   type Client,
   type ClientCategory,
   type ClientNoteSummary,
+  type DeletedDocument,
+  type DocumentCategory,
   type Expense,
   type ExpenseCategory,
   type Firm,
@@ -30,6 +34,7 @@ import {
 } from "./api";
 import { AppearanceManager } from "./AppearanceManager";
 import { ClientCategoryManager } from "./ClientCategoryManager";
+import { DocumentCategoryManager } from "./DocumentCategoryManager";
 import { FeatureManager } from "./FeatureManager";
 import { ExpenseCategoryManager } from "./ExpenseCategoryManager";
 import { TimeCategoryManager } from "./TimeCategoryManager";
@@ -41,9 +46,9 @@ import { InviteCodePanel } from "./InviteCodePanel";
 import { UsagePanel } from "./UsagePanel";
 
 type Section = "categories" | "billing" | "account";
-type CategoriesTab = "clients" | "expenses" | "time" | "notes";
+type CategoriesTab = "clients" | "expenses" | "time" | "notes" | "documents";
 type BillingTab = "rates" | "invoice" | "tax";
-type AccountTab = "invite" | "export" | "usage" | "appearance" | "features";
+type AccountTab = "invite" | "export" | "usage" | "appearance" | "features" | "deletedDocuments";
 
 const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: "categories", label: "Categories" },
@@ -56,6 +61,7 @@ const CATEGORIES_TABS: Array<{ key: CategoriesTab; label: string }> = [
   { key: "expenses", label: "Expenses" },
   { key: "time", label: "Time" },
   { key: "notes", label: "Notes" },
+  { key: "documents", label: "Documents" },
 ];
 
 const BILLING_TABS: Array<{ key: BillingTab; label: string }> = [
@@ -70,6 +76,7 @@ const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
   { key: "usage", label: "Usage" },
   { key: "appearance", label: "Appearance" },
   { key: "features", label: "Features" },
+  { key: "deletedDocuments", label: "Deleted documents" },
 ];
 
 export function AdminPage({
@@ -126,6 +133,7 @@ export function AdminPage({
               {categoriesTab === "expenses" && <ExpenseCategoriesTab />}
               {categoriesTab === "time" && <TimeCategoriesTab />}
               {categoriesTab === "notes" && <NoteCategoriesTab />}
+              {categoriesTab === "documents" && <DocumentCategoriesTab />}
             </>
           )}
 
@@ -172,6 +180,7 @@ export function AdminPage({
               {accountTab === "usage" && <UsagePanel />}
               {accountTab === "appearance" && <AppearanceManager />}
               {accountTab === "features" && <FeatureManager onChanged={onDisabledFeaturesChange} />}
+              {accountTab === "deletedDocuments" && <DeletedDocumentsTab />}
             </>
           )}
         </div>
@@ -306,6 +315,94 @@ function NoteCategoriesTab() {
     </p>
   );
   return <NoteCategoryManager categories={categories} notes={notes} onChanged={refresh} />;
+}
+
+function DocumentCategoriesTab() {
+  const [categories, setCategories] = useState<DocumentCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    setLoading(true);
+    try {
+      setCategories(await getDocumentCategories());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't load document categories");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  if (loading) return <p className="loading">Loading…</p>;
+  if (error) return (
+    <p className="error" role="alert">
+      {error}
+    </p>
+  );
+  return <DocumentCategoryManager categories={categories} onChanged={refresh} />;
+}
+
+// The audit trail for story 11.1's soft-delete requirement: every deleted
+// document, when, and by whom -- read-only, no undo action here (the row
+// is never actually removed from the database, so nothing to "restore" via
+// this screen; recovery would be a direct DB fix if ever needed).
+function DeletedDocumentsTab() {
+  const [documents, setDocuments] = useState<DeletedDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        setDocuments(await getDeletedDocuments());
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Couldn't load deleted documents");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) return <p className="loading">Loading…</p>;
+  if (error) return (
+    <p className="error" role="alert">
+      {error}
+    </p>
+  );
+  if (documents.length === 0) return <p className="empty">No documents have been deleted.</p>;
+
+  return (
+    <table className="month-detail-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Client</th>
+          <th>Category</th>
+          <th>Uploaded</th>
+          <th>Deleted</th>
+          <th>Deleted by</th>
+        </tr>
+      </thead>
+      <tbody>
+        {documents.map((doc) => (
+          <tr key={doc.id}>
+            <td>{doc.filename}</td>
+            <td>{doc.clientName}</td>
+            <td>{doc.categoryName ?? "Uncategorised"}</td>
+            <td>{doc.uploadedAt.slice(0, 10)}</td>
+            <td>{doc.deletedAt.slice(0, 10)}</td>
+            <td>{doc.deletedByEmail ?? "—"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 }
 
 function HourlyRatesTab() {

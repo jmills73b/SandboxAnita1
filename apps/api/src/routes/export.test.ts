@@ -57,6 +57,8 @@ describe("GET /api/export", () => {
       "client_notes",
       "client_note_versions",
       "note_categories",
+      "document_categories",
+      "documents",
       "tasks",
       "task_occurrences",
       "intermediary_firms",

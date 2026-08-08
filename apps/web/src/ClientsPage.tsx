@@ -9,6 +9,7 @@ import {
   type Client,
   type ClientCategory,
 } from "./api";
+import { ClientDocumentsPage } from "./ClientDocumentsPage";
 import { ClientNotesPage } from "./ClientNotesPage";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 
@@ -55,7 +56,12 @@ function CategoryChips({
   );
 }
 
-type Mode = { kind: "list" } | { kind: "add" } | { kind: "edit"; id: number } | { kind: "notes"; id: number };
+type Mode =
+  | { kind: "list" }
+  | { kind: "add" }
+  | { kind: "edit"; id: number }
+  | { kind: "notes"; id: number }
+  | { kind: "documents"; id: number };
 
 export function ClientsPage({
   onBack,
@@ -392,6 +398,17 @@ export function ClientsPage({
     );
   }
 
+  if (mode.kind === "documents") {
+    const documentsClient = clients.find((c) => c.id === mode.id);
+    return (
+      <ClientDocumentsPage
+        clientId={mode.id}
+        clientName={documentsClient?.name ?? "…"}
+        onBack={() => setMode({ kind: "list" })}
+      />
+    );
+  }
+
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
@@ -517,6 +534,13 @@ export function ClientsPage({
                       </button>
                       <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
                         Notes
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setMode({ kind: "documents", id: client.id })}
+                      >
+                        Documents
                       </button>
                       <button type="button" className="danger" onClick={() => handleDelete(client)}>
                         Delete
