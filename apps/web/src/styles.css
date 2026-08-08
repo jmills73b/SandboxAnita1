@@ -1686,6 +1686,23 @@ button.secondary {
   padding: 24px;
 }
 
+/* At tablet-landscape+ (.page itself grows here too, see above), a
+   fixed narrow width just traded a gap on the right for one on the
+   left of a right-anchored panel — use the space instead: let the
+   panel fill the page width and reflow its task cards into a grid,
+   the same auto-fit pattern the dashboard tiles already use below it. */
+@media (min-width: 900px) {
+  .task-quick-panel {
+    max-width: none;
+  }
+
+  .task-quick-panel .note-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+}
+
 .task-quick-panel .notes-panel-header {
   margin-bottom: 18px;
 }
