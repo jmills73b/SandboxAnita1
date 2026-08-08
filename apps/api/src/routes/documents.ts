@@ -31,6 +31,14 @@ const ALLOWED_TYPES: Array<{ extensions: string[]; contentTypes: string[] }> = [
 
 const MAX_SIZE_BYTES = 25 * 1024 * 1024; // Generous for a scanned letter or email chain, not unlimited.
 
+// A hard technical backstop well under Cloudflare R2's actual free tier
+// (10GB) -- rejects new uploads once total stored bytes would cross this
+// ceiling, rather than just trusting nobody ever will. Sums every document
+// regardless of deleted_at: soft-deleted documents keep their R2 object
+// (see the DELETE route below), so their bytes still count against real
+// R2 usage even though they're hidden from the normal per-client list.
+const STORAGE_CEILING_BYTES = 8 * 1024 * 1024 * 1024;
+
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf(".");
   return dot === -1 ? "" : filename.slice(dot).toLowerCase();
@@ -162,6 +170,16 @@ documents.post("/", async (c) => {
     if (!category) {
       return c.json({ error: "Category not found" }, 400);
     }
+  }
+
+  const storedTotal = await c.env.DB.prepare("SELECT COALESCE(SUM(size), 0) as total FROM documents").first<{
+    total: number;
+  }>();
+  if ((storedTotal?.total ?? 0) + file.size > STORAGE_CEILING_BYTES) {
+    return c.json(
+      { error: "Storage limit reached (8GB) — delete some documents or ask your developer to raise the limit" },
+      400,
+    );
   }
 
   const userId = c.get("userId");

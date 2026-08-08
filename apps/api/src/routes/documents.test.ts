@@ -94,6 +94,10 @@ function fakeEnv(
             return statement;
           },
           first: async <T,>() => {
+            if (sql.includes("SUM(size)")) {
+              const total = [...docStore.values()].reduce((sum, d) => sum + d.size, 0);
+              return { total } as T;
+            }
             if (sql.includes("SELECT id FROM clients WHERE id = ?")) {
               const [id] = boundArgs as [number];
               return (clients.some((c) => c.id === id) ? { id } : null) as T;
@@ -317,6 +321,79 @@ describe("POST /api/documents", () => {
     const stored = [...r2.raw.values()][0];
     const storedText = new TextDecoder().decode(stored);
     expect(storedText).not.toContain("hello world");
+  });
+
+  it("rejects an upload that would cross the 8GB storage ceiling", async () => {
+    const cookie = await sessionCookie();
+    const eightGB = 8 * 1024 * 1024 * 1024;
+    const env = fakeEnv({
+      documents: [
+        {
+          id: 1,
+          client_id: 1,
+          category_id: null,
+          direction: "inbound",
+          filename: "existing.pdf",
+          content_type: "application/pdf",
+          size: eightGB - 5, // just 5 bytes of headroom left
+          r2_key: "documents/1/existing",
+          iv: "iv-existing",
+          uploaded_by: 1,
+          uploaded_at: "2026-08-01T00:00:00.000Z",
+          deleted_at: null,
+          deleted_by: null,
+        },
+      ],
+    });
+    const form = new FormData();
+    form.set("file", pdfFile("letter.pdf", "hello world")); // well over 5 bytes
+    form.set("clientId", "1");
+    form.set("direction", "outbound");
+    const res = await app.request(
+      "/api/documents",
+      { method: "POST", headers: { Cookie: cookie }, body: form },
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Storage limit reached/);
+
+    const r2 = (env as unknown as { __r2: ReturnType<typeof fakeR2> }).__r2;
+    expect(r2.raw.size).toBe(0);
+  });
+
+  it("counts soft-deleted documents toward the storage ceiling, since their R2 object is never removed", async () => {
+    const cookie = await sessionCookie();
+    const eightGB = 8 * 1024 * 1024 * 1024;
+    const env = fakeEnv({
+      documents: [
+        {
+          id: 1,
+          client_id: 1,
+          category_id: null,
+          direction: "inbound",
+          filename: "deleted.pdf",
+          content_type: "application/pdf",
+          size: eightGB - 5,
+          r2_key: "documents/1/deleted",
+          iv: "iv-deleted",
+          uploaded_by: 1,
+          uploaded_at: "2026-08-01T00:00:00.000Z",
+          deleted_at: "2026-08-02T00:00:00.000Z",
+          deleted_by: 1,
+        },
+      ],
+    });
+    const form = new FormData();
+    form.set("file", pdfFile("letter.pdf", "hello world"));
+    form.set("clientId", "1");
+    form.set("direction", "outbound");
+    const res = await app.request(
+      "/api/documents",
+      { method: "POST", headers: { Cookie: cookie }, body: form },
+      env,
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Storage limit reached/);
   });
 });
 
