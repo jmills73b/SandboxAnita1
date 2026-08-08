@@ -544,6 +544,42 @@ button.client-link:hover {
   font-size: 13px;
 }
 
+/* A handful of pages (Performance's month breakdown and year-over-year
+   summary) only ever have 3 short columns, unlike the wider record-per-row
+   ledgers elsewhere that genuinely need a forced min-width and a
+   horizontal scroll on a phone. This drops that assumption so those
+   tables fit an iPhone-width screen unscrolled, wrapping cell text onto a
+   second line rather than forcing it wider. Selector doubles up
+   (.ledger.compact-table) for specificity over the shared .ledger/
+   .month-detail-table rules regardless of source order. */
+table.compact-table {
+  min-width: 0;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.ledger.compact-table th,
+.ledger.compact-table td,
+.month-detail-table.compact-table th,
+.month-detail-table.compact-table td {
+  padding: 8px 4px;
+  font-size: 12px;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.compact-table th:first-child,
+.compact-table td:first-child {
+  padding-left: 0;
+  width: 38%;
+}
+
+.compact-table th:last-child,
+.compact-table td:last-child {
+  padding-right: 0;
+  width: 30%;
+}
+
 /* Status: fill, outline, and line-weight carry the meaning colour usually
    would — solid ink = done, outline = still moving, dashed faint = not
    started yet. See the brand proposal for the full reasoning. */

@@ -436,7 +436,7 @@ function PerformanceSummary({
       <IncomeChart monthKeys={monthKeys} monthlyTotals={monthlyTotals} target={target} />
 
       <div className="table-scroll">
-        <table className="ledger">
+        <table className="ledger compact-table">
           <thead>
             <tr>
               <th>Month</th>
@@ -793,33 +793,36 @@ function YearOverYearChart({ series }: { series: YoYSeries[] }) {
         )}
       </div>
 
-      <table className="month-detail-table yoy-summary-table">
-        <thead>
-          <tr>
-            <th>Tax year</th>
-            <th>Income</th>
-            <th>Vs previous year (same point)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {orderedForDisplay.map((s) => {
-            const lastIdx = s.cumulative.reduce<number>((last, v, i) => (v !== null ? i : last), -1);
-            const value = lastIdx >= 0 ? (s.cumulative[lastIdx] ?? 0) : 0;
-            const prior = seriesByYearsBack.get(s.yearsBack + 1);
-            const priorValue = prior ? prior.cumulative[lastIdx] : null;
-            return (
-              <tr key={s.startYear}>
-                <td>
-                  {s.label}
-                  {s.yearsBack === 0 && " (so far)"}
-                </td>
-                <td>{money.format(value)}</td>
-                <td>{priorValue !== null && priorValue !== undefined ? yoyDeltaLabel(value - priorValue, priorValue) : "—"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="month-detail-table yoy-summary-table compact-table">
+          <thead>
+            <tr>
+              <th>Tax year</th>
+              <th>Income</th>
+              <th>Vs last year</th>
+            </tr>
+          </thead>
+          <tbody>
+            {orderedForDisplay.map((s) => {
+              const lastIdx = s.cumulative.reduce<number>((last, v, i) => (v !== null ? i : last), -1);
+              const value = lastIdx >= 0 ? (s.cumulative[lastIdx] ?? 0) : 0;
+              const prior = seriesByYearsBack.get(s.yearsBack + 1);
+              const priorValue = prior ? prior.cumulative[lastIdx] : null;
+              return (
+                <tr key={s.startYear}>
+                  <td>
+                    {s.label}
+                    {s.yearsBack === 0 && " (so far)"}
+                  </td>
+                  <td>{money.format(value)}</td>
+                  <td>{priorValue !== null && priorValue !== undefined ? yoyDeltaLabel(value - priorValue, priorValue) : "—"}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="chart-caption">"Vs last year" compares at the same point in the tax year, not the full year.</p>
     </div>
   );
 }
