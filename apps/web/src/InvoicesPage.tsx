@@ -35,7 +35,7 @@ function isInTaxYear(dateStr: string, startYear: number): boolean {
   return dateStr >= taxYearStartDate(startYear) && dateStr < taxYearStartDate(startYear + 1);
 }
 
-function statusClass(status: string): string {
+export function statusClass(status: string): string {
   return `status-${status.toLowerCase().replace(/[^a-z]+/g, "-")}`;
 }
 

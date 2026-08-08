@@ -1,3 +1,10 @@
+import { useEffect, useState } from "react";
+import { currentTaxYearStartYear } from "@sandboxanita1/core";
+import { getInvoices, getTaxYearSettings } from "./api";
+import { currentYearToDateSummary } from "./PerformancePage";
+
+const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+
 const TILES = [
   {
     key: "clients",
@@ -65,6 +72,24 @@ export function Dashboard({
   disabledFeatures?: string[];
 }) {
   const visibleTiles = TILES.filter((tile) => !disabledFeatures.includes(tile.key));
+  const [ytdSummary, setYtdSummary] = useState<{ actual: number; target: number } | null>(null);
+
+  // A quick glance at progress shouldn't require tapping into Performance
+  // & Targets first -- so the same "Year to date" figure that page shows
+  // is surfaced right on its tile. Best-effort: no monthly target set yet,
+  // or the fetch fails, and the tile just falls back to its plain
+  // description rather than showing a broken or stale number.
+  useEffect(() => {
+    if (disabledFeatures.includes("performance")) return;
+    Promise.all([getInvoices(), getTaxYearSettings(currentTaxYearStartYear())])
+      .then(([invoices, settings]) => {
+        if (!settings.monthlyTarget) return;
+        setYtdSummary(currentYearToDateSummary(invoices, currentTaxYearStartYear(), settings.monthlyTarget));
+      })
+      .catch(() => {
+        // Leave the tile's plain description in place.
+      });
+  }, [disabledFeatures]);
 
   return (
     <>
@@ -81,7 +106,15 @@ export function Dashboard({
               <div className="tile-top">
                 <span className="tile-name">{tile.name}</span>
               </div>
-              <p className="tile-desc">{tile.desc}</p>
+              <div>
+                <p className="tile-desc">{tile.desc}</p>
+                {tile.key === "performance" && ytdSummary && (
+                  <p className="tile-stat">
+                    {money.format(ytdSummary.actual)} YTD · {Math.round((ytdSummary.actual / ytdSummary.target) * 100)}%
+                    of target
+                  </p>
+                )}
+              </div>
             </button>
           ) : (
             <div key={tile.key} className="hero-tile upcoming">
