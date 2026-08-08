@@ -1,0 +1,305 @@
+# Architecture
+
+A detailed technical reference for ACM Caseflow. For process/branching conventions see
+[`CONTRIBUTING.md`](../CONTRIBUTING.md), and for the checklist an AI agent should run
+through before calling a new feature done, see [`CLAUDE.md`](../CLAUDE.md). This
+document is the "what is actually built and how it fits together" reference — refresh
+it when the shape of the system changes, not on every feature.
+
+## Stack & topology
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Frontend | React + Vite, deployed as Cloudflare Pages | Built as a static SPA (`apps/web`, `npm run build` → `dist/`) |
+| API | Hono, deployed as a Cloudflare Worker | `apps/api`, worker name `anita-invoice-tracker-api` |
+| Database | Cloudflare D1 (SQLite) | Database `anita-invoice-tracker` |
+| Object storage | Cloudflare R2 | Bucket `acm-caseflow-documents`, for uploaded documents |
+| CI/CD | GitHub Actions | Lint, unit tests, e2e, then deploy on push to `main` |
+| Auth | Built into the Worker | HMAC-signed session cookies, no third-party auth product |
+
+Chosen to run at effectively £0/month for this workload — nothing that sleeps, pauses,
+or requires paid tiers at this scale (R2 needed a one-time account activation and a
+card on file, but usage is designed to stay well under the free tier — see
+[Storage & encryption](#document-storage--encryption)).
+
+### Request flow in the deployed environment
+
+```
+Browser
+  → Cloudflare Pages (apps/web/dist, static)
+  → apps/web/functions/api/[[path]].ts   (Pages Function, proxies /api/* )
+  → https://anita-invoice-tracker-api.<account>.workers.dev   (the Worker)
+  → D1 (DB) / R2 (DOCUMENTS)
+```
+
+The Pages Function proxy exists so the browser only ever talks to one origin. Without
+it, the Worker and Pages site would be cross-origin, and Safari's cross-site cookie
+blocking would intermittently drop the session cookie (`sameSite: Lax` cookies need a
+first-party context to reliably persist). The frontend build carries no
+`VITE_API_URL` in production — it calls relative `/api/...` paths and lets the proxy
+resolve them. Locally, `VITE_API_URL=http://localhost:8787` points the dev frontend
+straight at `wrangler dev`, bypassing the proxy.
+
+### Monorepo layout
+
+```
+apps/
+  api/            Hono Worker — routes, migrations, wrangler.toml
+    src/routes/   One file per resource, each with a co-located *.test.ts
+    migrations/   Ordered .sql files, applied via `wrangler d1 migrations apply`
+  web/            React/Vite frontend
+    src/          Flat — no subfolders; see Frontend section below
+    functions/    Cloudflare Pages Functions (the API proxy)
+packages/
+  core/           Shared TypeScript logic, imported by both apps/api and apps/web
+e2e/              Playwright spec(s), run against a real build
+docs/             This file
+```
+
+## Data model
+
+### Migration history
+
+Migrations live in `apps/api/migrations/`, applied in order by
+`wrangler d1 migrations apply anita-invoice-tracker`. Several are structural rebuilds
+(SQLite's `ALTER TABLE` can't drop/rename constraints, so widening an enum or changing
+a FK means recreating the table) — those are noted below. Several others are one-off,
+idempotent data imports from the spreadsheet this app replaces.
+
+| # | File | Summary |
+|---|---|---|
+| 0001 | `0001_init.sql` | Initial schema: `users`, `clients`, `intermediary_firms` (seeded with Newmans), `tax_year_settings`, `invoices`, `expenses`. |
+| 0002 | `0002_relax_tax_year_settings.sql` | Rebuild: only `monthly_target` required up front; rate fields nullable. |
+| 0003 | `0003_rename_invoice_statuses.sql` | Rebuild: renames invoice status labels to their current wording, migrates existing rows. |
+| 0004 | `0004_invoice_generator.sql` | Adds `invoice_settings`, `invoice_batches`; adds firm contact fields; adds `invoices.matter`/`batch_id`. |
+| 0005 | `0005_expense_categories.sql` | Adds `expense_categories` (8 seeded defaults), FK from `expenses`, backfills and drops the old free-text column. |
+| 0006 | `0006_account_settings.sql` | Adds `account_settings` singleton — invite-code-gated registration. |
+| 0007 | `0007_tax_year_additional_rate.sql` | Adds the UK additional-rate tax band. |
+| 0008 | `0008_time_keeping.sql` | Adds `time_categories`, `time_settings`, `hourly_rates`, `time_entries`. |
+| 0009 | `0009_client_details.sql` | Adds `clients.email`/`summary`; adds `client_categories` + many-to-many `client_category_links`. |
+| 0010 | `0010_client_notes.sql` | Adds `note_categories`, `client_notes`, append-only `client_note_versions`. |
+| 0011 | `0011_tasks.sql` | Adds `tasks` + `task_occurrences`. |
+| 0012 | `0012_task_client_link.sql` | Adds `tasks.client_id` (nullable) for client follow-ups. |
+| 0013 | `0013_task_due_time.sql` | Adds `tasks.due_time` (default `09:30`). |
+| 0014 | `0014_disabled_features.sql` | Adds `account_settings.disabled_features` (JSON array) — the feature-toggle system. |
+| 0015 | `0015_task_frequency_options.sql` | Rebuild: adds `daily`/`fortnightly`/`four_weekly` frequencies. |
+| 0016 | `0016_task_status_and_days.sql` | Rebuild: `paused` boolean → `status` enum, adds `completed_at`, `days_of_week`. |
+| 0017 | `0017_tax_year_rate_nudge_task.sql` | Idempotently seeds a yearly recurring task reminding the user to confirm tax rates. |
+| 0018 | `0018_import_historical_bills.sql` | One-off idempotent import: ~90 historical clients/invoices (2021/22–2025/26) from the old spreadsheet. |
+| 0019 | `0019_backfill_tax_year_rates.sql` | Idempotently backfills 5 prior tax years' rates from 2026/27. |
+| 0020 | `0020_import_2026_27_bills.sql` | Idempotent import of the current tax year's ~21 invoices. |
+| 0021 | `0021_client_case_status.sql` | Adds `clients.case_status` (defaults `Active` for historical-import correctness). |
+| 0022 | `0022_copy_2026_27_rates_to_2025_26.sql` | One-time explicit correction: overwrites 2025/26 rates with 2026/27's. |
+| 0023 | `0023_documents.sql` | Adds `document_categories`, `documents` (R2 pointer, AES-GCM `iv`, soft delete). |
+
+### Current tables (23)
+
+`users` · `clients` · `intermediary_firms` · `tax_year_settings` · `invoices` ·
+`expenses` · `expense_categories` · `invoice_settings` · `invoice_batches` ·
+`account_settings` · `time_categories` · `time_settings` · `hourly_rates` ·
+`time_entries` · `client_categories` · `client_category_links` · `note_categories` ·
+`client_notes` · `client_note_versions` · `tasks` · `task_occurrences` ·
+`document_categories` · `documents`
+
+`apps/api/src/routes/export.ts`'s `TABLES` constant covers 21 of these for account
+data export — `users` and `account_settings` are deliberately excluded (credentials
+and app config, not business data).
+
+## API routes
+
+Everything is mounted in `apps/api/src/index.ts`. Every route file except `auth.ts`
+applies `requireAuth` (`.use("*", requireAuth)`) — there is no per-route permission
+system, just signed-in-or-not (see [Auth model](#auth-model)).
+
+| Mount path | File | Endpoints |
+|---|---|---|
+| `/api` | `auth.ts` | `GET /setup/status`, `POST /setup`, `POST /register`, `POST /login`, `GET /me`, `POST /logout` |
+| `/api/account-settings` | `accountSettings.ts` | `GET /`, `PUT /` (invite code), `PUT /features` (dashboard tile toggles) |
+| `/api/client-categories` | `clientCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/client-notes` | `clientNotes.ts` | `GET /`, `GET /:id`, `POST /`, `POST /:id/versions` |
+| `/api/clients` | `clients.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/document-categories` | `documentCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/documents` | `documents.ts` | `GET /`, `GET /deleted`, `POST /`, `GET /:id/download`, `DELETE /:id` |
+| `/api/expense-categories` | `expenseCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/expenses` | `expenses.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/export` | `export.ts` | `GET /` — full JSON backup of business tables |
+| `/api/firms` | `firms.ts` | `GET /`, `PATCH /:id` |
+| `/api/hourly-rates` | `hourlyRates.ts` | `GET /`, `POST /`, `PATCH /:id` |
+| `/api/invoice-batches` | `invoiceBatches.ts` | `GET /`, `GET /:id`, `POST /`, `DELETE /:id` |
+| `/api/invoice-settings` | `invoiceSettings.ts` | `GET /`, `PUT /` |
+| `/api/invoices` | `invoices.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/note-categories` | `noteCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/tasks` | `tasks.ts` | `GET /`, `GET /:id`, `POST /`, `PATCH /:id`, `POST /:id/actions` |
+| `/api/tax-year-settings` | `taxYearSettings.ts` | `GET /:startYear`, `POST /:startYear`, `POST /:startYear/split`, `PUT /:startYear/rates` |
+| `/api/time-categories` | `timeCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/time-entries` | `timeEntries.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
+| `/api/time-settings` | `timeSettings.ts` | `GET /`, `PUT /` |
+| `/api/usage` | `usage.ts` | `GET /` — Cloudflare free-tier usage vs. caps |
+
+`GET /api/health` is defined inline in `index.ts`, not a routed file.
+
+Notable business logic worth knowing about, not obvious from the route list alone:
+
+- **Invoices** compute `anita_income` from the tax year's configurable split
+  percentage (`taxYearSettings.ts`'s `POST /:startYear/split`), not a hardcoded
+  constant — `packages/core`'s `DEFAULT_SPLIT_PERCENTAGE` is only a fallback.
+- **Time entries** snapshot `rate_at_entry` from whatever `hourlyRates.ts`'s
+  `rateForDate()` resolves to on the entry's date, so a later rate correction doesn't
+  silently rewrite historical entries unless `PATCH /hourly-rates/:id` explicitly
+  requests a retroactive update.
+- **Invoice batches** snapshot letterhead/bank details onto the batch at creation
+  time — editing `invoice_settings` later doesn't alter already-sent batches.
+- **Client notes** are append-only (`client_note_versions`) — editing a note adds a
+  new version rather than overwriting, so history is preserved.
+- **Tasks** advance `next_due_date` through a recurrence engine
+  (`packages/core/src/taskRecurrence.ts`) on each logged action, rather than storing a
+  precomputed schedule.
+
+## Frontend
+
+All `.tsx` files live flat in `apps/web/src/` (no subfolders). Roughly three kinds:
+
+- **Dashboard tile pages** — one per `Dashboard.tsx` tile (see below): `ClientsPage`,
+  `TimeKeepingPage`, `InvoicesPage`, `PerformancePage`, `InvoiceGeneratorPage`,
+  `ExpensesPage`, `TaxPage`, `TasksPage`, `AllDocumentsPage`, `AdminPage`.
+- **Admin sub-panels**, composed inside `AdminPage.tsx`'s rail nav (Categories /
+  Billing / Account) — one `*Manager.tsx`/`*Panel.tsx` per manageable list or setting:
+  `ClientCategoryManager`, `NoteCategoryManager`, `DocumentCategoryManager`,
+  `ExpenseCategoryManager`, `TimeCategoryManager`, `TimeRateManager`,
+  `InvoiceSettingsManager`, `TaxRatesManager`, `FeatureManager`, `InviteCodePanel`,
+  `UsagePanel`, `AppearanceManager`.
+- **Shared components**: `Brand`, `ThemeQuickSwitch`, `TaskQuickPanel`,
+  `DayOfWeekPicker`, `FollowUpPicker`, `MarkdownToolbar`. Plus `App.tsx` (auth/setup
+  state resolution), `main.tsx` (entry point), `SignedInApp.tsx` (screen routing
+  shell), `SetupPage.tsx`, `LoginPage.tsx`.
+
+Client-scoped detail pages (`ClientNotesPage`, `ClientDocumentsPage`) are reached
+*from* `ClientsPage`, not from the dashboard directly.
+
+### Dashboard tiles
+
+| key | name | toggleable? |
+|---|---|---|
+| `clients` | Clients | No — foundational, other features reference client records |
+| `time` | Time Keeping | Yes |
+| `invoices` | Invoice Management | Yes |
+| `performance` | Performance & Targets | Yes |
+| `invoice-generator` | Invoice Generator | Yes |
+| `expenses` | Expenses | Yes |
+| `tax` | Tax & NI Estimate | Yes |
+| `tasks` | Tasks & Reminders | Yes |
+| `documents` | All Documents | Yes |
+| `admin` | Admin & Settings | No — where the toggle UI itself lives |
+
+### Feature toggle system
+
+Two independent lists have to agree, or the toggle 400s the moment someone tries to
+save it: `apps/web/src/FeatureManager.tsx`'s `FEATURES` array (renders the checkboxes)
+and `apps/api/src/routes/accountSettings.ts`'s `TOGGLEABLE_FEATURES` array (server-side
+validation on `PUT /api/account-settings/features`). `Dashboard.tsx`'s tile filter
+(`TILES.filter(tile => !disabledFeatures.includes(tile.key))`) is generic and needs no
+change once both lists agree — see [`CLAUDE.md`](../CLAUDE.md) for the full checklist
+this belongs to.
+
+## Shared core package
+
+`packages/core/src/` — plain TypeScript, built on Web Crypto only (no Node-only APIs),
+so the same code runs unmodified in the Worker, in the Vite frontend bundle, and under
+Vitest. Each file has a co-located `*.test.ts`.
+
+| File | Purpose |
+|---|---|
+| `auth.ts` | PBKDF2-SHA256 password hashing, HMAC-signed session token create/verify |
+| `income.ts` | `calculateAnitaIncome()` — applies the split % to an invoice total |
+| `invoiceStatus.ts` | `INVOICE_STATUSES` + validator — single source of truth for the invoice lifecycle |
+| `clientCaseStatus.ts` | `CLIENT_CASE_STATUSES` (Prospective/Active/Closed) + validator |
+| `taxYear.ts` | UK tax-year math (6th-to-5th year boundaries, tax-month bucketing) |
+| `tax.ts` | Self-employed sole-trader income tax + Class 2/4 NI calculator |
+| `taskRecurrence.ts` | Task due-date engine — frequencies, weekday restriction, month clamping |
+
+## Auth model
+
+Multi-user, gated by a shared invite code (not strictly single-user, despite the
+original README description):
+
+- **Bootstrap**: the *first* account is created via `POST /api/setup` with no invite
+  code (nobody exists yet to have set one). `GET /api/setup/status` is public and only
+  reveals whether any account exists yet, driving whether the frontend shows
+  `SetupPage` or `LoginPage`.
+- **Every subsequent account** goes through `POST /api/register`, requiring a valid
+  `inviteCode` matched against the singleton `account_settings.invite_code` (settable
+  by any signed-in user via `InviteCodePanel.tsx`).
+- **Sessions**: HMAC-SHA256-signed, self-contained tokens (`{userId, exp}` + signature,
+  no server-side session store), 7-day lifetime, stored as an `httpOnly`, `secure`,
+  `sameSite: Lax` cookie named `session`. `Lax` works because the Pages Function proxy
+  (see [Topology](#request-flow-in-the-deployed-environment)) keeps requests
+  same-origin from the browser's point of view.
+- **Passwords**: minimum 8 characters, PBKDF2-SHA256 (100,000 iterations, random
+  16-byte salt). Login returns an identical error for "no such user" and "wrong
+  password" to avoid revealing account existence.
+- There is no role/permission system beyond signed-in-or-not — every account sees the
+  same Admin & Settings screens.
+
+## Document storage & encryption
+
+Uploaded documents (`documents.ts`) go through:
+
+1. Validation — extension *and* declared content-type must both match an allow-list
+   (PDF, .doc, .docx, .eml, .msg), capped at 25 MB per file (`MAX_SIZE_BYTES`).
+2. A storage-ceiling check — `STORAGE_CEILING_BYTES = 8 * 1024 * 1024 * 1024` (8 GiB),
+   computed by summing `documents.size` across **all** documents including
+   soft-deleted ones (their R2 objects are never actually removed). This is a real
+   technical backstop, comfortably under R2's actual 10 GB free-tier limit.
+3. Application-layer encryption (`documentEncryption.ts`) — AES-GCM via Web Crypto,
+   using `DOCUMENT_ENCRYPTION_KEY` (a base64 32-byte secret) and a fresh random 12-byte
+   IV per file, persisted in `documents.iv` since it's needed again to decrypt. This
+   sits on top of R2's own at-rest encryption, using a key R2 itself never has.
+4. The encrypted bytes are written to R2; only a pointer (bucket key) and metadata
+   live in D1.
+
+Deletes are soft (`deleted_at`/`deleted_by`) — the row and the R2 object both survive,
+recoverable/auditable via `GET /api/documents/deleted` and the "Deleted documents"
+admin tab.
+
+The Usage panel (`usage.ts`) computes R2 storage from the app's own D1 accounting
+(`SUM(documents.size)`) rather than calling Cloudflare's R2 API — this app is the sole
+writer to the bucket, so D1 is already authoritative, and it avoids a third Cloudflare
+API permission scope.
+
+## Deployment & CI
+
+`apps/api/wrangler.toml`: Worker `anita-invoice-tracker-api`, D1 binding `DB` →
+`anita-invoice-tracker`, R2 binding `DOCUMENTS` → `acm-caseflow-documents`. Secrets
+(`SESSION_SECRET`, `DOCUMENT_ENCRYPTION_KEY`, `CF_API_TOKEN`, `CF_ACCOUNT_ID`) are set
+via GitHub Actions at deploy time, not committed — all but `SESSION_SECRET` are
+optional on `Env` and degrade to a clear "not configured" 500 rather than breaking the
+app or its tests if unset.
+
+`.github/workflows/ci.yml` — three jobs on every push/PR:
+
+1. **`lint-and-test`** — `npm run lint` (eslint), `npm test` (vitest, all unit tests).
+2. **`e2e`** — Playwright against a real `wrangler dev` + `vite build && vite preview`,
+   uploads the report as an artifact on failure.
+3. **`deploy`** (only on push to `main`, after the two jobs above are green) —
+   applies D1 migrations remotely, ensures the R2 bucket and Pages project exist,
+   deploys the Worker, builds the frontend, deploys to Cloudflare Pages.
+
+The R2-bucket-provisioning step deliberately runs before any other `wrangler-action`
+step in the job: that action silently runs `wrangler deploy` as a fallback on any step
+that only declares `secrets:` without an explicit `command:`, which previously broke
+deploys when the R2 binding existed in `wrangler.toml` before the bucket did.
+
+This pipeline currently deploys to a single Cloudflare environment on every merge to
+`main` — there is no separate staging/production split yet. See the note in
+[`README.md`](../README.md#status) about the two-environment strategy still to be
+decided before go-live.
+
+## Testing
+
+- **Unit**: Vitest, `npm test`. Every API route file and every `packages/core`
+  file has a co-located `*.test.ts`.
+- **E2E**: Playwright, `npm run test:e2e`. Deliberately minimal — one spec
+  (`e2e/critical-path.spec.ts`), one browser (Chromium): create account → add a
+  client inline → add an invoice → confirm it renders correctly on the ledger → back
+  to dashboard. Runs against a real build (`wrangler dev` + `vite build && vite
+  preview`), not mocks, with a fresh local D1 per run.

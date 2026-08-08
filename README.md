@@ -1,13 +1,43 @@
 # ACM Caseflow
 
-A small web app for Anita's costs-consultancy business, replacing the spreadsheet currently used to log invoices, track income against monthly targets, and estimate UK income tax / National Insurance liability.
+A web app for Anita's costs-consultancy business, replacing the spreadsheet
+previously used to log invoices, track chargeable time, manage clients and
+documents, and estimate UK income tax / National Insurance liability.
 
 ## Status
 
-Pre-build. Requirements and the full backlog have been captured:
+Built and functionally complete: all ten dashboard features below are implemented,
+tested, and deploy automatically to a Cloudflare environment on every merge to `main`
+(see [CI/CD](docs/ARCHITECTURE.md#deployment--ci)). **This is not yet a live
+production system** — before it becomes the system of record for the business, it
+needs to go through business acceptance testing (BAT), and a two-environment
+(staging/production) deployment strategy is still to be decided.
 
-- **Requirements & user stories (10 epics, 39 stories):** https://claude.ai/code/artifact/47949864-f4bc-4a1c-8cf4-9c72c419eb1f
-- **Backlog:** tracked as GitHub Issues in this repo (labelled by epic, increment, and priority) — see the repository's Projects tab for the Kanban board.
+The original requirements doc (10 epics, 39 stories) and GitHub Issues backlog cover
+the initial build plan; the app has since grown well beyond that scope (time keeping,
+client notes, tasks & reminders, document storage) as real usage surfaced more of
+what the spreadsheet was doing. For what's actually built today, see
+[**`docs/ARCHITECTURE.md`**](docs/ARCHITECTURE.md) — the current technical reference,
+covering the data model, every API route, the frontend structure, auth, and
+deployment topology in detail.
+
+## What's built
+
+| Feature | What it does |
+|---|---|
+| Clients | Client list with contact details, tag categories, and prospective/active/closed status |
+| Time Keeping | Log chargeable time against a client in configurable billing units |
+| Invoice Management | Log invoices, track status through to payment, see performance by client |
+| Performance & Targets | Track actual income against this month's target |
+| Invoice Generator | Batch eligible invoices into a consolidated bill, generate the PDF |
+| Expenses | Log and categorise business expenses |
+| Tax & NI Estimate | Estimate the current tax year's income tax and National Insurance |
+| Tasks & Reminders | Recurring and one-off to-dos, with due dates, history, and client follow-ups |
+| Documents | Encrypted per-client document storage, searchable across every client |
+| Admin & Settings | Manage every category list, billing settings, feature toggles, and account tools |
+
+Every feature above except Clients and Admin & Settings can be individually hidden
+from the dashboard via Admin & Settings → Account → Features.
 
 ## Stack (all free to run)
 
@@ -16,25 +46,14 @@ Pre-build. Requirements and the full backlog have been captured:
 | Frontend | Cloudflare Pages |
 | API | Cloudflare Workers |
 | Database | Cloudflare D1 (SQLite) |
+| Object storage | Cloudflare R2 (encrypted document storage) |
 | CI | GitHub Actions |
-| Auth | Single-user login built into the Worker — no third-party auth product |
+| Auth | Built into the Worker, invite-code-gated — no third-party auth product |
 
-Chosen specifically to stay at £0/month indefinitely for a single-user workload, with nothing that sleeps, pauses, or requires a card at this scale.
-
-## Delivery order
-
-Built in seven increments, each one a usable slice that replaces a specific sheet from the original spreadsheet rather than a partial feature waiting on later work to matter. The full table is in the requirements doc linked above.
-
-| # | Increment | Replaces |
-|---|---|---|
-| 0 | Foundations (CI, hosting, empty app deployed end-to-end) | — |
-| 1 | Log invoices | Bills, Existing Clients |
-| 2 | See where I stand (history import + targets) | Summary |
-| 3 | Full dashboard + expenses | Dashboard, Expenses |
-| 4 | Know the tax bill | Tax Liability |
-| 5 | Send an invoice | Invoice template |
-| 6 | Polish & safety net | — |
+Chosen to stay at effectively £0/month at this scale, with nothing that sleeps,
+pauses, or requires a paid tier for the expected workload.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for branching, testing expectations, and the Definition of Done.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for branching, testing expectations, and the
+Definition of Done.
