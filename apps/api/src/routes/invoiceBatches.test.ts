@@ -296,3 +296,62 @@ describe("GET /api/invoice-batches/:id", () => {
     expect(body.lineItems).toHaveLength(1);
   });
 });
+
+describe("DELETE /api/invoice-batches/:id", () => {
+  it("404s when the batch doesn't exist", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoice-batches/999",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({ getRow: null }),
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("deletes the batch and un-bills its line items", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/invoice-batches/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({ getRow: { id: 1, reference: "AMILLS0050" } }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("frees the reference number for reuse when deleting the most recently issued batch", async () => {
+    const cookie = await sessionCookie();
+    // settings.next_reference_number defaults to 63, so AMILLS0062 was the
+    // last one actually issued -- deleting that exact batch should roll
+    // the counter back to 62, and the next generated invoice reuses it.
+    const env = fakeEnv({ getRow: { id: 1, reference: "AMILLS0062" } });
+    const del = await app.request("/api/invoice-batches/1", { method: "DELETE", headers: { Cookie: cookie } }, env);
+    expect(del.status).toBe(200);
+
+    const post = await app.request(
+      "/api/invoice-batches",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ invoiceIds: [1, 2], firmId: 1, invoiceDate: "2026-07-13" }) },
+      env,
+    );
+    expect(post.status).toBe(201);
+    expect((await post.json()).reference).toBe("AMILLS0062");
+  });
+
+  it("does not roll back the counter when deleting an earlier, non-most-recent batch", async () => {
+    const cookie = await sessionCookie();
+    // settings.next_reference_number defaults to 63 (last issued: 62) --
+    // deleting a much earlier batch shouldn't touch the counter, so the
+    // next generated invoice still continues on from 63.
+    const env = fakeEnv({ getRow: { id: 1, reference: "AMILLS0010" } });
+    const del = await app.request("/api/invoice-batches/1", { method: "DELETE", headers: { Cookie: cookie } }, env);
+    expect(del.status).toBe(200);
+
+    const post = await app.request(
+      "/api/invoice-batches",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ invoiceIds: [1, 2], firmId: 1, invoiceDate: "2026-07-13" }) },
+      env,
+    );
+    expect(post.status).toBe(201);
+    expect((await post.json()).reference).toBe("AMILLS0063");
+  });
+});

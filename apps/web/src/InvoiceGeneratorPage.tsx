@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   createInvoiceBatch,
+  deleteInvoiceBatch,
   getFirms,
   getInvoiceBatch,
   getInvoiceBatches,
@@ -56,6 +57,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
   const [selectedStartYear, setSelectedStartYear] = useState(() => currentTaxYearStartYear());
 
   const [downloadingBatchId, setDownloadingBatchId] = useState<number | null>(null);
+  const [deletingBatchId, setDeletingBatchId] = useState<number | null>(null);
 
   const firm = firms[0] ?? null;
 
@@ -137,6 +139,24 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
       setError(err instanceof Error ? err.message : "Couldn't download that invoice");
     } finally {
       setDownloadingBatchId(null);
+    }
+  }
+
+  async function handleDeleteBatch(batch: InvoiceBatchSummary) {
+    const confirmed = window.confirm(
+      `Delete invoice ${batch.reference}? Its line items go back to "Ready to bill" so you can re-invoice them.`,
+    );
+    if (!confirmed) return;
+
+    setError(null);
+    setDeletingBatchId(batch.id);
+    try {
+      await deleteInvoiceBatch(batch.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't delete that invoice");
+    } finally {
+      setDeletingBatchId(null);
     }
   }
 
@@ -298,14 +318,24 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
                       <td>{batch.billToName}</td>
                       <td>{money.format(batch.totalAmountDue)}</td>
                       <td>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => handleRegenerate(batch.id)}
-                          disabled={downloadingBatchId === batch.id}
-                        >
-                          {downloadingBatchId === batch.id ? "Preparing…" : "Download PDF"}
-                        </button>
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => handleRegenerate(batch.id)}
+                            disabled={downloadingBatchId === batch.id}
+                          >
+                            {downloadingBatchId === batch.id ? "Preparing…" : "Download PDF"}
+                          </button>
+                          <button
+                            type="button"
+                            className="danger"
+                            onClick={() => handleDeleteBatch(batch)}
+                            disabled={deletingBatchId === batch.id}
+                          >
+                            {deletingBatchId === batch.id ? "Deleting…" : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

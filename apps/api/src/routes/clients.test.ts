@@ -23,6 +23,8 @@ function fakeEnv(
     clients?: StoredClient[];
     categories?: Map<number, string>;
     links?: Record<number, number[]>; // clientId -> categoryIds
+    invoiceCounts?: Record<number, number>; // clientId -> count
+    timeEntryCounts?: Record<number, number>; // clientId -> count
   } = {},
 ): Env {
   const clientStore = new Map<number, StoredClient>((options.clients ?? []).map((c) => [c.id, c]));
@@ -30,6 +32,8 @@ function fakeEnv(
   const linkStore = new Map<number, Set<number>>(
     Object.entries(options.links ?? {}).map(([k, v]) => [Number(k), new Set(v)]),
   );
+  const invoiceCounts = options.invoiceCounts ?? {};
+  const timeEntryCounts = options.timeEntryCounts ?? {};
   let nextId = Math.max(0, ...[...clientStore.keys()]) + 1;
 
   function linksFor(clientId: number) {
@@ -58,6 +62,14 @@ function fakeEnv(
             if (sql.includes("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients WHERE id = ?")) {
               const [id] = boundArgs as [number];
               return (clientStore.get(id) ?? null) as T;
+            }
+            if (sql.includes("SELECT COUNT(*) as count FROM invoices WHERE client_id = ?")) {
+              const [id] = boundArgs as [number];
+              return { count: invoiceCounts[id] ?? 0 } as T;
+            }
+            if (sql.includes("SELECT COUNT(*) as count FROM time_entries WHERE client_id = ?")) {
+              const [id] = boundArgs as [number];
+              return { count: timeEntryCounts[id] ?? 0 } as T;
             }
             return null;
           },
@@ -102,6 +114,10 @@ function fakeEnv(
               const set = linkStore.get(clientId) ?? new Set<number>();
               set.add(categoryId);
               linkStore.set(clientId, set);
+            }
+            if (sql.includes("DELETE FROM clients WHERE id = ?")) {
+              const [id] = boundArgs as [number];
+              clientStore.delete(id);
             }
             return { success: true, meta: {} };
           },
@@ -323,6 +339,53 @@ describe("PATCH /api/clients/:id", () => {
         clients: [
           { id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null, case_status: "Active" },
         ],
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("DELETE /api/clients/:id", () => {
+  it("404s when the client doesn't exist", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request("/api/clients/99", { method: "DELETE", headers: { Cookie: cookie } }, fakeEnv());
+    expect(res.status).toBe(404);
+  });
+
+  it("deletes a client with no invoices or time entries", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("blocks deletion when the client has invoices", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+        invoiceCounts: { 1: 3 },
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("blocks deletion when the client has time entries", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "DELETE", headers: { Cookie: cookie } },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+        timeEntryCounts: { 1: 1 },
       }),
     );
     expect(res.status).toBe(400);

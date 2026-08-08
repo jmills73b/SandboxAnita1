@@ -200,4 +200,47 @@ clients.patch("/:id", async (c) => {
   return c.json(updated);
 });
 
+clients.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ error: "Invalid client id" }, 400);
+  }
+
+  const existing = await fetchClient(c.env.DB, id);
+  if (!existing) {
+    return c.json({ error: "Client not found" }, 404);
+  }
+
+  // Invoices and time entries are billing history, not organisational
+  // metadata -- deleting a client silently taking those with it would
+  // destroy real financial records. Blocked outright rather than
+  // reassigned (unlike the category-delete routes) because there's no
+  // sensible "reassign this income to a different client" operation.
+  const invoiceCount = await c.env.DB.prepare("SELECT COUNT(*) as count FROM invoices WHERE client_id = ?")
+    .bind(id)
+    .first<{ count: number }>();
+  const timeEntryCount = await c.env.DB.prepare("SELECT COUNT(*) as count FROM time_entries WHERE client_id = ?")
+    .bind(id)
+    .first<{ count: number }>();
+  if ((invoiceCount?.count ?? 0) > 0 || (timeEntryCount?.count ?? 0) > 0) {
+    return c.json(
+      { error: "Can't delete a client with invoices or time entries — that's billing history, not a mistake to undo." },
+      400,
+    );
+  }
+
+  // Everything else is organisational metadata, safe to clear.
+  await c.env.DB.prepare(
+    "DELETE FROM client_note_versions WHERE note_id IN (SELECT id FROM client_notes WHERE client_id = ?)",
+  )
+    .bind(id)
+    .run();
+  await c.env.DB.prepare("DELETE FROM client_notes WHERE client_id = ?").bind(id).run();
+  await c.env.DB.prepare("DELETE FROM client_category_links WHERE client_id = ?").bind(id).run();
+  await c.env.DB.prepare("UPDATE tasks SET client_id = NULL WHERE client_id = ?").bind(id).run();
+  await c.env.DB.prepare("DELETE FROM clients WHERE id = ?").bind(id).run();
+
+  return c.json({ ok: true });
+});
+
 export default clients;

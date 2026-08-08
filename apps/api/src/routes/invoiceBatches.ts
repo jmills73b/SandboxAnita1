@@ -281,4 +281,41 @@ invoiceBatches.post("/", async (c) => {
   return c.json(toBatchDetail(created, lineItems), 201);
 });
 
+invoiceBatches.delete("/:id", async (c) => {
+  const id = Number(c.req.param("id"));
+  if (!Number.isInteger(id)) {
+    return c.json({ error: "Invalid batch id" }, 400);
+  }
+
+  const batch = await c.env.DB.prepare("SELECT id, reference FROM invoice_batches WHERE id = ?")
+    .bind(id)
+    .first<{ id: number; reference: string }>();
+  if (!batch) {
+    return c.json({ error: "Invoice batch not found" }, 404);
+  }
+
+  // Un-bill every line item so it's available to batch again.
+  await c.env.DB.prepare("UPDATE invoices SET batch_id = NULL WHERE batch_id = ?").bind(id).run();
+  await c.env.DB.prepare("DELETE FROM invoice_batches WHERE id = ?").bind(id).run();
+
+  // Only free the reference number up for reuse when this was genuinely
+  // the last one issued -- reference is UNIQUE, so rolling the counter
+  // back after deleting an *earlier* batch would let some future invoice
+  // collide with a still-existing batch's number once the counter counts
+  // back up to it.
+  const settings = await c.env.DB.prepare(
+    "SELECT reference_prefix, next_reference_number FROM invoice_settings WHERE id = 1",
+  ).first<{ reference_prefix: string; next_reference_number: number }>();
+  if (settings) {
+    const lastIssuedReference = `${settings.reference_prefix}${String(settings.next_reference_number - 1).padStart(4, "0")}`;
+    if (batch.reference === lastIssuedReference) {
+      await c.env.DB.prepare("UPDATE invoice_settings SET next_reference_number = ? WHERE id = 1")
+        .bind(settings.next_reference_number - 1)
+        .run();
+    }
+  }
+
+  return c.json({ ok: true });
+});
+
 export default invoiceBatches;

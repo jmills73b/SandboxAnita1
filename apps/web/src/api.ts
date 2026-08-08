@@ -86,6 +86,10 @@ export function updateClient(
   return request(`/api/clients/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
+export function deleteClient(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/clients/${id}`, { method: "DELETE" });
+}
+
 export function getClientCategories(): Promise<ClientCategory[]> {
   return request("/api/client-categories");
 }
@@ -287,6 +291,10 @@ export function createInvoiceBatch(input: {
   invoiceDate: string;
 }): Promise<InvoiceBatchDetail> {
   return request("/api/invoice-batches", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function deleteInvoiceBatch(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/invoice-batches/${id}`, { method: "DELETE" });
 }
 
 export interface ExpenseCategory {
