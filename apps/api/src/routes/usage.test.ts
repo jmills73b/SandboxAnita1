@@ -9,12 +9,18 @@ async function sessionCookie(): Promise<string> {
   return `session=${await createSessionToken({ userId: 1, exp: Math.floor(Date.now() / 1000) + 60 }, SECRET)}`;
 }
 
-const dummyDb = { prepare: () => ({ bind: () => ({}) }) } as unknown as Env["DB"];
+function fakeEnv(options: { cfApiToken?: string; cfAccountId?: string; r2StorageTotal?: number } = {}): Env {
+  const total = options.r2StorageTotal ?? 0;
+  const db = {
+    prepare: () => ({
+      bind: () => ({ first: async () => ({ total }) }),
+      first: async () => ({ total }),
+    }),
+  } as unknown as Env["DB"];
 
-function fakeEnv(options: { cfApiToken?: string; cfAccountId?: string } = {}): Env {
   return {
     SESSION_SECRET: SECRET,
-    DB: dummyDb,
+    DB: db,
     CF_API_TOKEN: options.cfApiToken,
     CF_ACCOUNT_ID: options.cfAccountId,
   };
@@ -93,7 +99,7 @@ describe("GET /api/usage", () => {
     const res = await app.request(
       "/api/usage",
       { headers: { Cookie: cookie } },
-      fakeEnv({ cfApiToken: "t", cfAccountId: "a" }),
+      fakeEnv({ cfApiToken: "t", cfAccountId: "a", r2StorageTotal: 250_000_000 }),
     );
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
@@ -101,6 +107,7 @@ describe("GET /api/usage", () => {
       d1RowsRead: { used: 12000, cap: 5_000_000 },
       d1RowsWritten: { used: 300, cap: 100_000 },
       d1Storage: { used: 1_500_000, cap: 5_000_000_000 },
+      r2Storage: { used: 250_000_000, cap: 8 * 1024 * 1024 * 1024 },
     });
   });
 

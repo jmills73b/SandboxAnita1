@@ -37,7 +37,7 @@ const MAX_SIZE_BYTES = 25 * 1024 * 1024; // Generous for a scanned letter or ema
 // regardless of deleted_at: soft-deleted documents keep their R2 object
 // (see the DELETE route below), so their bytes still count against real
 // R2 usage even though they're hidden from the normal per-client list.
-const STORAGE_CEILING_BYTES = 8 * 1024 * 1024 * 1024;
+export const STORAGE_CEILING_BYTES = 8 * 1024 * 1024 * 1024;
 
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf(".");

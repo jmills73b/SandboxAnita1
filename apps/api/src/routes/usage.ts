@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
+import { STORAGE_CEILING_BYTES } from "./documents";
 
 const usage = new Hono<AppEnv>();
 
@@ -117,11 +118,21 @@ usage.get("/", async (c) => {
     d1StorageBytes = storageBody.result?.file_size ?? 0;
   }
 
+  // Read straight from our own accounting (the same SUM the upload route
+  // itself enforces against STORAGE_CEILING_BYTES) rather than calling
+  // Cloudflare's R2 API — this app is the only writer to that bucket, so
+  // it's already the source of truth, and it's one less API permission to
+  // depend on.
+  const r2Total = await c.env.DB.prepare("SELECT COALESCE(SUM(size), 0) as total FROM documents").first<{
+    total: number;
+  }>();
+
   return c.json({
     workersRequests: { used: requestsToday, cap: CAPS.workersRequests },
     d1RowsRead: { used: d1RowsReadToday, cap: CAPS.d1RowsRead },
     d1RowsWritten: { used: d1RowsWrittenToday, cap: CAPS.d1RowsWritten },
     d1Storage: { used: d1StorageBytes, cap: CAPS.d1StorageBytes },
+    r2Storage: { used: r2Total?.total ?? 0, cap: STORAGE_CEILING_BYTES },
   });
 });
 

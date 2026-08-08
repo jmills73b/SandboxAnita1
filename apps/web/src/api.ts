@@ -502,6 +502,7 @@ export interface UsageStats {
   d1RowsRead: UsageMetric;
   d1RowsWritten: UsageMetric;
   d1Storage: UsageMetric;
+  r2Storage: UsageMetric;
 }
 
 export function getUsage(): Promise<UsageStats> {

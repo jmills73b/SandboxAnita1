@@ -66,6 +66,7 @@ export function UsagePanel({ onClose }: { onClose?: () => void }) {
           <UsageBar label="D1 rows read" used={usage.d1RowsRead.used} cap={usage.d1RowsRead.cap} format={(n) => count.format(n)} />
           <UsageBar label="D1 rows written" used={usage.d1RowsWritten.used} cap={usage.d1RowsWritten.cap} format={(n) => count.format(n)} />
           <UsageBar label="D1 storage" used={usage.d1Storage.used} cap={usage.d1Storage.cap} format={formatBytes} />
+          <UsageBar label="R2 storage (documents)" used={usage.r2Storage.used} cap={usage.r2Storage.cap} format={formatBytes} />
         </div>
       ) : null}
       {onClose && (
