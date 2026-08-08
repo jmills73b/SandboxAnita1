@@ -20,6 +20,7 @@ const FEATURES: Array<{ key: string; name: string; desc: string }> = [
     name: "Tasks & Reminders",
     desc: "Track recurring and one-off things to do, with due dates and history.",
   },
+  { key: "documents", name: "All Documents", desc: "Search every stored document across every client in one place." },
 ];
 
 export function FeatureManager({ onChanged }: { onChanged: (disabledFeatures: string[]) => void }) {

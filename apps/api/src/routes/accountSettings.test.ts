@@ -145,6 +145,17 @@ describe("PUT /api/account-settings/features", () => {
     expect(await res.json()).toEqual({ disabledFeatures: ["time", "tasks"] });
   });
 
+  it("accepts documents as a toggleable key", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/account-settings/features",
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ disabledFeatures: ["documents"] }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ disabledFeatures: ["documents"] });
+  });
+
   it("persists an empty list to re-enable everything", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(

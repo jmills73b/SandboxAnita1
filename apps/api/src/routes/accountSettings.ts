@@ -13,7 +13,16 @@ accountSettings.use("*", requireAuth);
 // Admin & Settings is where this very toggle lives — allowing either to
 // be hidden would make the app unusable or lock the account out of ever
 // re-enabling something.
-const TOGGLEABLE_FEATURES = ["time", "invoices", "performance", "invoice-generator", "expenses", "tax", "tasks"];
+const TOGGLEABLE_FEATURES = [
+  "time",
+  "invoices",
+  "performance",
+  "invoice-generator",
+  "expenses",
+  "tax",
+  "tasks",
+  "documents",
+];
 
 function parseDisabledFeatures(stored: string): string[] {
   try {
