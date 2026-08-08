@@ -1673,9 +1673,16 @@ button.secondary {
 /* The header's quick preview — capped to a handful of items with a "View
    all" link rather than growing to match however many tasks exist, and
    kept visually lighter/narrower than a full edit panel so it reads as a
-   quick glance, not another page dropped onto whatever screen you're on. */
+   quick glance, not another page dropped onto whatever screen you're on.
+   margin-left: auto anchors it under the header's "Tasks" button (the
+   right side, where it was triggered from) instead of sitting flush left
+   with the rest of the row left empty — invisible on a phone, where the
+   panel already spans almost the full width, but on an iPad-landscape or
+   wider screen the fixed max-width otherwise left it stranded in the
+   top-left corner next to a large blank gap. */
 .task-quick-panel {
   max-width: 420px;
+  margin-left: auto;
   padding: 24px;
 }
 
