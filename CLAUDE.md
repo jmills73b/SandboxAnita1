@@ -1,8 +1,13 @@
 # CLAUDE.md
 
 Operational notes for an AI agent working in this repo. See `CONTRIBUTING.md` for
-human-facing process (branching, testing, definition of done) and `README.md` for
-what the app is.
+human-facing process (branching, testing, definition of done), `README.md` for what
+the app is, and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for how it's actually
+built — data model, every API route, frontend structure, the design system, auth, and
+deployment. Read `docs/ARCHITECTURE.md` before touching a part of the app you haven't
+worked in this session; it's more likely to be current than your own memory of a
+prior session, since nothing carries over between sessions except what's written down
+here.
 
 ## Before marking a new top-level feature "done"
 
