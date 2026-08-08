@@ -957,6 +957,27 @@ button.secondary {
   font-size: 13px;
 }
 
+/* A document's Download action is a plain link, not a button (see
+   ClientDocumentsPage) -- styled the same as button.secondary so it sits
+   comfortably in a .row-actions group alongside real buttons. */
+a.secondary {
+  display: inline-block;
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.secondary:hover {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+
 .error {
   color: var(--error);
   font-size: 14px;

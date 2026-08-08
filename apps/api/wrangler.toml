@@ -7,3 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "anita-invoice-tracker"
 database_id = "d852a373-d2e7-496f-b08f-2ba20d588189"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "acm-caseflow-documents"

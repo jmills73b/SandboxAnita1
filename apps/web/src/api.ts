@@ -656,3 +656,96 @@ export function updateTask(
 export function actOnTask(id: number, action: TaskAction): Promise<TaskDetail> {
   return request(`/api/tasks/${id}/actions`, { method: "POST", body: JSON.stringify({ action }) });
 }
+
+export interface DocumentCategory {
+  id: number;
+  name: string;
+}
+
+export function getDocumentCategories(): Promise<DocumentCategory[]> {
+  return request("/api/document-categories");
+}
+
+export function addDocumentCategory(name: string): Promise<DocumentCategory> {
+  return request("/api/document-categories", { method: "POST", body: JSON.stringify({ name }) });
+}
+
+export function renameDocumentCategory(id: number, name: string): Promise<DocumentCategory> {
+  return request(`/api/document-categories/${id}`, { method: "PATCH", body: JSON.stringify({ name }) });
+}
+
+export function deleteDocumentCategory(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/document-categories/${id}`, { method: "DELETE" });
+}
+
+export type DocumentDirection = "inbound" | "outbound";
+
+export interface CaseDocument {
+  id: number;
+  clientId: number;
+  categoryId: number | null;
+  categoryName: string | null;
+  direction: DocumentDirection;
+  filename: string;
+  contentType: string;
+  size: number;
+  uploadedByEmail: string;
+  uploadedAt: string;
+}
+
+export interface DeletedDocument extends CaseDocument {
+  clientName: string;
+  deletedAt: string;
+  deletedByEmail: string | null;
+}
+
+export function getDocuments(clientId: number): Promise<CaseDocument[]> {
+  return request(`/api/documents?clientId=${clientId}`);
+}
+
+export function getDeletedDocuments(): Promise<DeletedDocument[]> {
+  return request("/api/documents/deleted");
+}
+
+// Bypasses the JSON `request()` helper: a FormData body needs the browser
+// to set its own multipart boundary Content-Type, which request()'s
+// hardcoded "application/json" header would stomp on.
+export async function uploadDocument(input: {
+  clientId: number;
+  categoryId: number | null;
+  direction: DocumentDirection;
+  file: File;
+}): Promise<CaseDocument> {
+  const form = new FormData();
+  form.set("file", input.file);
+  form.set("clientId", String(input.clientId));
+  form.set("direction", input.direction);
+  if (input.categoryId !== null) {
+    form.set("categoryId", String(input.categoryId));
+  }
+
+  const res = await fetch(`${API_URL}/api/documents`, {
+    method: "POST",
+    credentials: "include",
+    body: form,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}) as { error?: string });
+    throw new Error(body.error ?? `Something went wrong (${res.status})`);
+  }
+
+  return res.json() as Promise<CaseDocument>;
+}
+
+export function deleteDocument(id: number): Promise<{ ok: boolean }> {
+  return request(`/api/documents/${id}`, { method: "DELETE" });
+}
+
+// A plain same-origin GET link (see functions/api/[[path]].ts's proxy) does
+// the actual download/open — no fetch+blob handling needed, and the
+// session cookie rides along automatically since this is a top-level
+// navigation, which SameSite=Lax still allows.
+export function documentDownloadUrl(id: number): string {
+  return `${API_URL}/api/documents/${id}/download`;
+}

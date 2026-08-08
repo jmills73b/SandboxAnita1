@@ -74,6 +74,38 @@ jobs:
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
 
+      # Ensures the bucket referenced by wrangler.toml's r2_buckets binding
+      # actually exists before the Worker deploy below tries to bind it —
+      # same "check first, create if missing" shape as the Pages project
+      # check further down.
+      - name: Ensure R2 bucket exists
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler r2 bucket list | grep -q "acm-caseflow-documents"; then
+            npx wrangler r2 bucket create acm-caseflow-documents
+          fi
+
+      # Client correspondence and case documents are legally privileged, so
+      # every uploaded file is encrypted (see documentEncryption.ts) with a
+      # key this repo doesn't generate on its own — DOCUMENT_ENCRYPTION_KEY
+      # needs to exist as a GitHub Actions secret (a base64-encoded 32-byte
+      # value) before Documents actually works in production. Until it's
+      # set, the feature reports itself as unconfigured rather than
+      # breaking the rest of the app, same as the usage tracking secrets.
+      - name: Set document encryption key
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/api
+          secrets: |
+            DOCUMENT_ENCRYPTION_KEY
+        env:
+          DOCUMENT_ENCRYPTION_KEY: ${{ secrets.DOCUMENT_ENCRYPTION_KEY }}
+
       # Reuses the same deploy credentials already used above, rather than
       # asking for a new secret — the Usage panel just needs the Worker's
       # own copy of them to call Cloudflare's Analytics API at runtime.
