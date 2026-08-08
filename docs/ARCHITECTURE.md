@@ -201,6 +201,104 @@ validation on `PUT /api/account-settings/features`). `Dashboard.tsx`'s tile filt
 change once both lists agree — see [`CLAUDE.md`](../CLAUDE.md) for the full checklist
 this belongs to.
 
+## Design system
+
+All styling lives in one file, `apps/web/src/styles.css` — there is no per-component
+CSS, no CSS-in-JS, no utility framework. This is deliberate at the current scale, but
+it means consistency depends entirely on reusing what's already there rather than the
+tooling catching drift. Before writing new page-level CSS, check whether an existing
+class already does the job.
+
+### Tokens & themes
+
+Colors and fonts are CSS custom properties on `:root`, redefined per theme rather than
+hardcoded per rule:
+
+| Token | Purpose |
+|---|---|
+| `--ink` / `--ink-soft` / `--ink-faint` | primary / secondary / tertiary text |
+| `--paper` / `--paper-raised` | page background / card-and-panel background |
+| `--line` / `--line-strong` | hairline and stronger borders |
+| `--error` / `--warn` | the only two hue-based "meaning" colors |
+| `--button-bg` / `--button-fg` | primary button fill/text (aliases `--ink`/`--paper` except in Feel Good) |
+| `--display` | heading font stack: `"Fraunces", Georgia, "Iowan Old Style", serif` (self-hosted woff2, weights 400/600) |
+| `--sans` | body/UI font stack: system font stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`) |
+
+There is deliberately no `--accent`/`--success` token — status is conveyed by fill,
+outline, or dash weight on `--ink` (see [Status pills](#status-pill-convention))
+rather than by color, keeping color reserved for `--error`/`--warn` and (in one theme)
+the primary button.
+
+**Three themes**: `light`, `dark`, `feelgood` ("Feel Good"), selected via a
+`data-theme` attribute on `<html>` (`:root[data-theme="..."]` blocks in `styles.css`
+redeclare the token set). No attribute at all means "follow the OS" — a
+`@media (prefers-color-scheme: dark)` block supplies the dark values in that case.
+Feel Good is the only theme that breaks from monochrome ink/paper: it overrides
+`--button-bg`/`--button-fg` to a violet primary-button accent, the one deliberately
+saturated color choice in the app, spent in exactly one place.
+
+Theme state lives in `apps/web/src/theme.ts`: persisted to `localStorage` (key
+`acm-theme`, not account settings — it's a per-device preference, not per-account),
+applied via `applyTheme()` which sets/clears the `data-theme` attribute, and broadcast
+across mounted components via a `CustomEvent("acm-theme-change")` so the header quick
+switch (`ThemeQuickSwitch.tsx`) and the full picker in Admin & Settings
+(`AppearanceManager.tsx`) stay in sync with each other. `main.tsx` calls
+`applyTheme(getStoredTheme())` before `createRoot(...).render(...)` to avoid a flash
+of the default theme on load.
+
+**Any new UI must be checked against all three themes**, not just light — Feel Good's
+accent button and dark's inverted contrast are both easy to break by hardcoding a
+color instead of using a token.
+
+### Reusable component classes
+
+The shared layout/component vocabulary, in rough order of how widely it's used. All
+of these appear across multiple otherwise-unrelated pages — reach for one of these
+before inventing a new class:
+
+- **App shell** (rendered once, wraps every signed-in page): `.page`, `.page-header`,
+  `.page-header-right`, `.page-header-buttons` (all in `SignedInApp.tsx`).
+- **Page structure**: `.back-link` ("← Back" at the top of a page), `.sr-only`,
+  `.loading`, `.empty`, `.error`, `.hint`.
+- **Data tables**: `.ledger` (primary data table), `.month-detail-table` (nested/admin
+  detail table), `.table-scroll` (horizontal-scroll wrapper with edge-fade shadow
+  cues for tables wider than the viewport).
+- **Forms**: `.edit-panel` (boxed add/edit form), `.edit-row` / `.edit-field`
+  (inline edit layout), `.form` (vertical flex form), `.filters` (search/filter bar),
+  `.quick-add` (inline quick-add row), `.chip` / `.chip-group` (toggleable tag chips).
+- **Actions**: `button.secondary` / `.secondary` (secondary button/link — note
+  `a.secondary` exists too, for download-style links styled like a button),
+  `.danger` (destructive action), `.row-actions` (button group in a table row),
+  `.page-primary-action` (page-level "+ Add X" button wrapper).
+- **Navigation**: `.hero-grid` / `.hero-tile` (the dashboard hub tiles, incl. an
+  `.upcoming` "Coming soon" variant), `.admin-layout` / `.admin-rail` /
+  `.admin-content` (Admin & Settings' rail nav), `.subtabs` / `.subtab`
+  (horizontally-scrolling sub-tab row), `.mode-toggle` (segmented toggle control).
+- **Stat display**: `.client-stat` / `.client-stats`, `.stat-groups` — dashboard-style
+  stat tiles reused on several record pages (Clients, Expenses, Invoices, Time
+  Keeping).
+
+### Status pill convention
+
+A shared base `.status` pill (rounded, `1px solid var(--ink)` border), with meaning
+conveyed by fill/border style rather than hue — solid ink fill for a completed/closed
+state, dashed faint border for not-started/in-progress, plain outline for everything
+in between. Concrete status classes are generated dynamically from the status string
+(e.g. `InvoicesPage.tsx`'s `statusClass()`, `ClientsPage.tsx`'s local
+`caseStatusClass()`) rather than hardcoded per value — a new status value picks up the
+right pill treatment automatically as long as it goes through one of these helpers.
+
+### Layout & responsiveness
+
+No formal spacing-scale variables — margins/padding are ad hoc px values, but an
+informal rhythm of `24 / 20 / 16 / 14 / 10 / 6px` recurs throughout; match it rather
+than introducing new values. Responsive tile grids (`.hero-grid`, `.client-stats`,
+`.stat-groups`) consistently use `grid-template-columns: repeat(auto-fit,
+minmax(Npx, 1fr))` rather than fixed column counts. Breakpoints are `max-width`-based
+and page-container width grows in two steps (`900px`, `1300px`); auth screens
+(`.page-narrow`, `SetupPage.tsx`/`LoginPage.tsx`) are a fixed 360px at every viewport
+and deliberately not responsive.
+
 ## Shared core package
 
 `packages/core/src/` — plain TypeScript, built on Web Crypto only (no Node-only APIs),

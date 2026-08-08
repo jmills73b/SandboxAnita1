@@ -38,6 +38,15 @@ them out.
   categories, document categories, note categories, client categories) get their own
   CRUD route and an admin-manageable list under Admin & Settings, rather than a fixed
   enum baked into the schema.
+- **Design consistency**: new UI reuses the existing design tokens and component
+  classes from `apps/web/src/styles.css` (see the Design System section of
+  `docs/ARCHITECTURE.md`) rather than introducing new colors, fonts, or one-off
+  layout classes. In particular: use the `--ink`/`--paper`/`--line` tokens rather than
+  hardcoded colors (status/meaning is conveyed by fill/outline weight on `--ink`, not
+  new hues), reach for an existing class (`.ledger`, `.edit-panel`, `.row-actions`,
+  `.chip-group`, `.status`, etc.) before writing new CSS, and check the result in all
+  three themes (Light, Dark, Feel Good) — Feel Good's violet button accent and Dark's
+  inverted contrast are both easy to break by hardcoding a color instead of a token.
 
 If a new feature doesn't fit one of these patterns, that's fine — but say so
 explicitly (in the PR description or to the user) rather than silently skipping it,
