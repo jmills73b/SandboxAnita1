@@ -52,6 +52,7 @@ function isAllowedFile(filename: string, contentType: string): boolean {
 interface DocumentRow {
   id: number;
   client_id: number;
+  client_name: string;
   category_id: number | null;
   category_name: string | null;
   direction: string;
@@ -66,6 +67,7 @@ function toDocument(row: DocumentRow) {
   return {
     id: row.id,
     clientId: row.client_id,
+    clientName: row.client_name,
     categoryId: row.category_id,
     categoryName: row.category_name,
     direction: row.direction,
@@ -78,26 +80,37 @@ function toDocument(row: DocumentRow) {
 }
 
 const LIST_COLUMNS =
-  "documents.id, documents.client_id, documents.category_id, document_categories.name AS category_name, " +
-  "documents.direction, documents.filename, documents.content_type, documents.size, " +
-  "users.email AS uploaded_by_email, documents.uploaded_at";
+  "documents.id, documents.client_id, clients.name AS client_name, documents.category_id, " +
+  "document_categories.name AS category_name, documents.direction, documents.filename, documents.content_type, " +
+  "documents.size, users.email AS uploaded_by_email, documents.uploaded_at";
 
 const LIST_JOIN =
   "FROM documents " +
+  "JOIN clients ON clients.id = documents.client_id " +
   "LEFT JOIN document_categories ON document_categories.id = documents.category_id " +
   "JOIN users ON users.id = documents.uploaded_by";
 
+// clientId is optional: a specific client's Documents page passes it to
+// scope the list, while the holistic "All Documents" dashboard tile omits
+// it to see every non-deleted document across every client at once (with
+// clientName always in the response either way, from the join above, so
+// that view doesn't need a second round trip to label each row).
 documents.get("/", async (c) => {
-  const clientId = Number(c.req.query("clientId"));
-  if (!Number.isInteger(clientId)) {
-    return c.json({ error: "clientId is required" }, 400);
+  const clientIdParam = c.req.query("clientId");
+  let clientId: number | undefined;
+  if (clientIdParam !== undefined) {
+    clientId = Number(clientIdParam);
+    if (!Number.isInteger(clientId)) {
+      return c.json({ error: "Invalid clientId" }, 400);
+    }
   }
 
-  const { results } = await c.env.DB.prepare(
-    `SELECT ${LIST_COLUMNS} ${LIST_JOIN} WHERE documents.client_id = ? AND documents.deleted_at IS NULL ORDER BY documents.uploaded_at DESC`,
-  )
-    .bind(clientId)
-    .all<DocumentRow>();
+  const where =
+    clientId !== undefined
+      ? "WHERE documents.client_id = ? AND documents.deleted_at IS NULL"
+      : "WHERE documents.deleted_at IS NULL";
+  const stmt = c.env.DB.prepare(`SELECT ${LIST_COLUMNS} ${LIST_JOIN} ${where} ORDER BY documents.uploaded_at DESC`);
+  const { results } = await (clientId !== undefined ? stmt.bind(clientId) : stmt).all<DocumentRow>();
 
   return c.json(results.map(toDocument));
 });
@@ -108,18 +121,16 @@ documents.get("/", async (c) => {
 // soft-deleted document, when, and by whom.
 documents.get("/deleted", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT ${LIST_COLUMNS}, clients.name AS client_name, deleters.email AS deleted_by_email, documents.deleted_at
+    `SELECT ${LIST_COLUMNS}, deleters.email AS deleted_by_email, documents.deleted_at
      ${LIST_JOIN}
-     JOIN clients ON clients.id = documents.client_id
      LEFT JOIN users deleters ON deleters.id = documents.deleted_by
      WHERE documents.deleted_at IS NOT NULL
      ORDER BY documents.deleted_at DESC`,
-  ).all<DocumentRow & { client_name: string; deleted_by_email: string | null; deleted_at: string }>();
+  ).all<DocumentRow & { deleted_by_email: string | null; deleted_at: string }>();
 
   return c.json(
     results.map((row) => ({
       ...toDocument(row),
-      clientName: row.client_name,
       deletedAt: row.deleted_at,
       deletedByEmail: row.deleted_by_email,
     })),

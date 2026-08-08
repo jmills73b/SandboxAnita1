@@ -70,6 +70,7 @@ function fakeEnv(
     return {
       id: row.id,
       client_id: row.client_id,
+      client_name: clients.find((c) => c.id === row.client_id)?.name ?? "",
       category_id: row.category_id,
       category_name: categories.find((c) => c.id === row.category_id)?.name ?? null,
       direction: row.direction,
@@ -152,7 +153,6 @@ function fakeEnv(
                 .sort((a, b) => (b.deleted_at ?? "").localeCompare(a.deleted_at ?? ""))
                 .map((row) => ({
                   ...enrich(row),
-                  client_name: clients.find((c) => c.id === row.client_id)?.name ?? "",
                   deleted_by_email: users.find((u) => u.id === row.deleted_by)?.email ?? null,
                   deleted_at: row.deleted_at,
                 }));
@@ -162,6 +162,13 @@ function fakeEnv(
               const [clientId] = boundArgs as [number];
               const rows = [...docStore.values()]
                 .filter((d) => d.client_id === clientId && d.deleted_at === null)
+                .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at))
+                .map(enrich);
+              return { results: rows as T[], success: true, meta: {} };
+            }
+            if (sql.includes("documents.deleted_at IS NULL")) {
+              const rows = [...docStore.values()]
+                .filter((d) => d.deleted_at === null)
                 .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at))
                 .map(enrich);
               return { results: rows as T[], success: true, meta: {} };
@@ -403,10 +410,80 @@ describe("GET /api/documents", () => {
     expect(res.status).toBe(401);
   });
 
-  it("requires a clientId", async () => {
+  it("rejects a malformed clientId", async () => {
     const cookie = await sessionCookie();
-    const res = await app.request("/api/documents", { headers: { Cookie: cookie } }, fakeEnv());
+    const res = await app.request(
+      "/api/documents?clientId=not-a-number",
+      { headers: { Cookie: cookie } },
+      fakeEnv(),
+    );
     expect(res.status).toBe(400);
+  });
+
+  it("returns every non-deleted document across every client, with clientName, when clientId is omitted", async () => {
+    const cookie = await sessionCookie();
+    const env = fakeEnv({
+      clients: [
+        { id: 1, name: "Jane Doe" },
+        { id: 2, name: "John Smith" },
+      ],
+      documents: [
+        {
+          id: 1,
+          client_id: 1,
+          category_id: null,
+          direction: "inbound",
+          filename: "email.eml",
+          content_type: "message/rfc822",
+          size: 10,
+          r2_key: "documents/1/a",
+          iv: "iv-a",
+          uploaded_by: 1,
+          uploaded_at: "2026-08-01T00:00:00.000Z",
+          deleted_at: null,
+          deleted_by: null,
+        },
+        {
+          id: 2,
+          client_id: 1,
+          category_id: null,
+          direction: "outbound",
+          filename: "deleted.docx",
+          content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          size: 20,
+          r2_key: "documents/1/b",
+          iv: "iv-b",
+          uploaded_by: 1,
+          uploaded_at: "2026-08-02T00:00:00.000Z",
+          deleted_at: "2026-08-03T00:00:00.000Z",
+          deleted_by: 1,
+        },
+        {
+          id: 3,
+          client_id: 2,
+          category_id: null,
+          direction: "inbound",
+          filename: "other-client.pdf",
+          content_type: "application/pdf",
+          size: 30,
+          r2_key: "documents/2/c",
+          iv: "iv-c",
+          uploaded_by: 1,
+          uploaded_at: "2026-08-01T00:00:00.000Z",
+          deleted_at: null,
+          deleted_by: null,
+        },
+      ],
+    });
+    const res = await app.request("/api/documents", { headers: { Cookie: cookie } }, env);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveLength(2);
+    expect(body.map((d: { filename: string }) => d.filename).sort()).toEqual(["email.eml", "other-client.pdf"]);
+    const janes = body.find((d: { clientName: string }) => d.clientName === "Jane Doe");
+    const johns = body.find((d: { clientName: string }) => d.clientName === "John Smith");
+    expect(janes.filename).toBe("email.eml");
+    expect(johns.filename).toBe("other-client.pdf");
   });
 
   it("lists only non-deleted documents for that client", async () => {

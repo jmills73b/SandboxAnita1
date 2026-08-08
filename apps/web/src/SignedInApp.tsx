@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getAccountSettings, getTasks, logout } from "./api";
 import { AdminPage } from "./AdminPage";
+import { AllDocumentsPage } from "./AllDocumentsPage";
 import { ClientsPage } from "./ClientsPage";
 import { Dashboard, type DashboardTile } from "./Dashboard";
 import { ExpensesPage } from "./ExpensesPage";
@@ -139,6 +140,7 @@ export function SignedInApp({
         <ClientsPage onBack={goHome} onViewInvoices={(clientId) => setScreen({ kind: "invoices", clientId })} />
       )}
       {screen.kind === "tasks" && <TasksPage onBack={goHome} />}
+      {screen.kind === "documents" && <AllDocumentsPage onBack={goHome} />}
       {screen.kind === "admin" && <AdminPage onBack={goHome} onDisabledFeaturesChange={setDisabledFeatures} />}
     </main>
   );

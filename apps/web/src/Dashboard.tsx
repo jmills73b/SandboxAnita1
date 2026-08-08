@@ -55,6 +55,12 @@ const TILES = [
     active: true,
   },
   {
+    key: "documents",
+    name: "All Documents",
+    desc: "Search every stored document across every client in one place.",
+    active: true,
+  },
+  {
     key: "admin",
     name: "Admin & Settings",
     desc: "Manage categories, billing settings, and account tools for every function.",

@@ -684,6 +684,7 @@ export type DocumentDirection = "inbound" | "outbound";
 export interface CaseDocument {
   id: number;
   clientId: number;
+  clientName: string;
   categoryId: number | null;
   categoryName: string | null;
   direction: DocumentDirection;
@@ -695,13 +696,15 @@ export interface CaseDocument {
 }
 
 export interface DeletedDocument extends CaseDocument {
-  clientName: string;
   deletedAt: string;
   deletedByEmail: string | null;
 }
 
-export function getDocuments(clientId: number): Promise<CaseDocument[]> {
-  return request(`/api/documents?clientId=${clientId}`);
+// clientId omitted lists every non-deleted document across every client —
+// used by the holistic "All Documents" dashboard tile, as opposed to a
+// specific client's own Documents page.
+export function getDocuments(clientId?: number): Promise<CaseDocument[]> {
+  return request(clientId !== undefined ? `/api/documents?clientId=${clientId}` : "/api/documents");
 }
 
 export function getDeletedDocuments(): Promise<DeletedDocument[]> {
