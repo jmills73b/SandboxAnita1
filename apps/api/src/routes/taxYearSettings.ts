@@ -106,8 +106,41 @@ taxYearSettings.post("/:startYear", async (c) => {
   return c.json(toSettings(startYear, label, startDate, row));
 });
 
+// Separate from both the target and rates routes above, and deliberately not
+// year-picker driven on the frontend (see Admin & Settings -> Billing ->
+// Billing rates) -- the split is a "change it for right now" setting, not
+// something Anita ever needs to backdate, so this always writes whichever
+// tax year the frontend considers current.
+taxYearSettings.post("/:startYear/split", async (c) => {
+  const startYear = parseStartYear(c.req.param("startYear"));
+  if (startYear === null) {
+    return c.json({ error: "Invalid tax year" }, 400);
+  }
+
+  const { splitPercentage } = await c.req.json<{ splitPercentage?: number }>();
+  if (typeof splitPercentage !== "number" || !Number.isFinite(splitPercentage) || splitPercentage < 0 || splitPercentage > 1) {
+    return c.json({ error: "Enter your share as a decimal fraction between 0 and 1 (e.g. 0.75 for 75%)" }, 400);
+  }
+
+  const label = taxYearLabel(startYear);
+  const startDate = taxYearStartDate(startYear);
+
+  await c.env.DB.prepare(
+    `INSERT INTO tax_year_settings (tax_year, start_date, monthly_target, split_percentage)
+     VALUES (?, ?, 0, ?)
+     ON CONFLICT(tax_year) DO UPDATE SET split_percentage = excluded.split_percentage`,
+  )
+    .bind(label, startDate, splitPercentage)
+    .run();
+
+  const row = await c.env.DB.prepare(`SELECT ${ROW_COLUMNS} FROM tax_year_settings WHERE tax_year = ?`)
+    .bind(label)
+    .first<TaxYearRow>();
+
+  return c.json(toSettings(startYear, label, startDate, row));
+});
+
 interface RatesInput {
-  splitPercentage?: number;
   personalAllowance?: number;
   basicRate?: number;
   basicRateThreshold?: number;
@@ -123,7 +156,6 @@ interface RatesInput {
 
 function validateRates(input: RatesInput): string | null {
   const {
-    splitPercentage,
     personalAllowance,
     basicRate,
     basicRateThreshold,
@@ -138,7 +170,6 @@ function validateRates(input: RatesInput): string | null {
   } = input;
 
   const values = [
-    splitPercentage,
     personalAllowance,
     basicRate,
     basicRateThreshold,
@@ -154,7 +185,7 @@ function validateRates(input: RatesInput): string | null {
   if (values.some((v) => typeof v !== "number" || !Number.isFinite(v) || v < 0)) {
     return "All rates and thresholds are required and must be zero or more";
   }
-  const rates = [splitPercentage, basicRate, higherRate, additionalRate, niLowerRate, niUpperRate];
+  const rates = [basicRate, higherRate, additionalRate, niLowerRate, niUpperRate];
   if (rates.some((r) => (r as number) > 1)) {
     return "Rates should be entered as a decimal fraction (e.g. 0.2 for 20%), not a percentage";
   }
@@ -190,15 +221,14 @@ taxYearSettings.put("/:startYear/rates", async (c) => {
 
   await c.env.DB.prepare(
     `INSERT INTO tax_year_settings (
-       tax_year, start_date, monthly_target, split_percentage,
+       tax_year, start_date, monthly_target,
        personal_allowance, basic_rate, basic_rate_threshold,
        higher_rate, higher_rate_threshold, additional_rate,
        ni_lower_threshold, ni_upper_threshold, ni_lower_rate, ni_upper_rate,
        class2_flat_rate, rates_confirmed_at
      )
-     VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+     VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
      ON CONFLICT(tax_year) DO UPDATE SET
-       split_percentage = excluded.split_percentage,
        personal_allowance = excluded.personal_allowance,
        basic_rate = excluded.basic_rate,
        basic_rate_threshold = excluded.basic_rate_threshold,
@@ -215,7 +245,6 @@ taxYearSettings.put("/:startYear/rates", async (c) => {
     .bind(
       label,
       startDate,
-      input.splitPercentage,
       input.personalAllowance,
       input.basicRate,
       input.basicRateThreshold,

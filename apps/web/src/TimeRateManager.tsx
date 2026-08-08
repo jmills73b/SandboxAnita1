@@ -1,5 +1,13 @@
 import { useState, type FormEvent } from "react";
-import { addHourlyRate, updateHourlyRate, updateTimeSettings, type HourlyRate, type TimeSettings } from "./api";
+import { currentTaxYearStartYear } from "@sandboxanita1/core";
+import {
+  addHourlyRate,
+  setTaxYearSplit,
+  updateHourlyRate,
+  updateTimeSettings,
+  type HourlyRate,
+  type TimeSettings,
+} from "./api";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
 
@@ -7,26 +15,54 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Two independent settings live here: the billing unit size (a single
-// current value — how many minutes one "unit" is) and the hourly rate
-// history (many rows, since a rate has to be looked up by the date the
-// work was done, not just "whatever it is today").
+// Three independent settings live here: the income split (Anita's share of
+// each invoice — a single current-tax-year value, changes apply going
+// forward only, see story 8.4), the billing unit size (a single current
+// value — how many minutes one "unit" is), and the hourly rate history
+// (many rows, since a rate has to be looked up by the date the work was
+// done, not just "whatever it is today").
 export function TimeRateManager({
   settings,
   rates,
+  splitPercentage,
   onChanged,
   rateMessage,
   onRateMessage,
 }: {
   settings: TimeSettings;
   rates: HourlyRate[];
+  splitPercentage: number | null;
   onChanged: () => Promise<void>;
   rateMessage: string | null;
   onRateMessage: (message: string | null) => void;
 }) {
+  const [splitInput, setSplitInput] = useState(splitPercentage != null ? String(splitPercentage) : "");
+  const [savingSplit, setSavingSplit] = useState(false);
+  const [splitError, setSplitError] = useState<string | null>(null);
+
   const [unitMinutes, setUnitMinutes] = useState(String(settings.unitMinutes));
   const [savingUnit, setSavingUnit] = useState(false);
   const [unitError, setUnitError] = useState<string | null>(null);
+
+  async function handleSaveSplit(event: FormEvent) {
+    event.preventDefault();
+    setSplitError(null);
+    const value = Number(splitInput);
+    if (!Number.isFinite(value) || value < 0 || value > 1) {
+      setSplitError("Enter your share as a decimal fraction between 0 and 1 (e.g. 0.75 for 75%)");
+      return;
+    }
+
+    setSavingSplit(true);
+    try {
+      await setTaxYearSplit(currentTaxYearStartYear(), value);
+      await onChanged();
+    } catch (err) {
+      setSplitError(err instanceof Error ? err.message : "Couldn't save that split");
+    } finally {
+      setSavingSplit(false);
+    }
+  }
 
   const [newRate, setNewRate] = useState("");
   const [newStartDate, setNewStartDate] = useState(today());
@@ -118,6 +154,33 @@ export function TimeRateManager({
 
   return (
     <div>
+      <p className="settings-section-title">Income split</p>
+      <p className="hint">
+        Applies going forward only — invoices already logged keep whatever split was in force when they were raised.
+      </p>
+      <form onSubmit={handleSaveSplit} className="edit-row">
+        <label className="edit-field">
+          <span>Your share of each invoice (e.g. 0.75 for 75%)</span>
+          <input
+            type="number"
+            step="any"
+            min="0"
+            max="1"
+            className="input-compact"
+            value={splitInput}
+            onChange={(event) => setSplitInput(event.target.value)}
+          />
+        </label>
+        <button type="submit" disabled={savingSplit}>
+          {savingSplit ? "Saving…" : "Save"}
+        </button>
+      </form>
+      {splitError && (
+        <p className="error" role="alert">
+          {splitError}
+        </p>
+      )}
+
       <p className="settings-section-title">Billing unit size</p>
       <form onSubmit={handleSaveUnit} className="edit-row">
         <label className="edit-field">
