@@ -46,12 +46,6 @@ const RATES_INPUT = {
   class2FlatRate: 179.4,
 };
 
-// Sent alongside RATES_INPUT on every PUT /rates request -- kept separate
-// from RATES_INPUT itself since several tests assert body.rates equals
-// RATES_INPUT exactly, and splitPercentage lives outside the nested
-// "rates" object in the response (see toSettings in the route).
-const SPLIT_INPUT = { splitPercentage: 0.75 };
-
 // A minimal D1 stand-in that actually remembers state across the
 // insert-then-reselect the route does, rather than a fixed canned response.
 function fakeEnv(options: { existingRow?: FakeRow | null } = {}): Env {
@@ -73,7 +67,6 @@ function fakeEnv(options: { existingRow?: FakeRow | null } = {}): Env {
               const [
                 taxYear,
                 startDate,
-                splitPercentage,
                 personalAllowance,
                 basicRate,
                 basicRateThreshold,
@@ -90,7 +83,10 @@ function fakeEnv(options: { existingRow?: FakeRow | null } = {}): Env {
                 tax_year: taxYear as string,
                 start_date: (storedRow?.start_date ?? startDate) as string,
                 monthly_target: storedRow?.monthly_target ?? 0,
-                split_percentage: splitPercentage as number,
+                // Not part of this write anymore (moved to its own POST
+                // /:startYear/split route) -- mirrors the real schema's
+                // NOT NULL DEFAULT 0.75 for a genuinely fresh row.
+                split_percentage: storedRow?.split_percentage ?? DEFAULT_SPLIT_PERCENTAGE,
                 personal_allowance: personalAllowance as number,
                 basic_rate: basicRate as number,
                 basic_rate_threshold: basicRateThreshold as number,
@@ -104,6 +100,17 @@ function fakeEnv(options: { existingRow?: FakeRow | null } = {}): Env {
                 class2_flat_rate: class2FlatRate as number,
                 rates_confirmed_at: "2026-08-05T12:00:00.000Z",
               };
+            } else if (sql.includes("SET split_percentage = excluded.split_percentage")) {
+              const [taxYear, startDate, splitPercentage] = boundArgs as [string, string, number];
+              storedRow =
+                storedRow && storedRow.tax_year === taxYear
+                  ? { ...storedRow, split_percentage: splitPercentage }
+                  : {
+                      tax_year: taxYear,
+                      start_date: startDate,
+                      monthly_target: 0,
+                      split_percentage: splitPercentage,
+                    };
             } else if (sql.includes("INSERT INTO tax_year_settings")) {
               const [taxYear, startDate, monthlyTarget, splitPercentage] = boundArgs as [
                 string,
@@ -329,7 +336,7 @@ describe("PUT /api/tax-year-settings/:startYear/rates", () => {
       {
         method: "PUT",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ ...RATES_INPUT, ...SPLIT_INPUT, basicRate: 20 }),
+        body: JSON.stringify({ ...RATES_INPUT, basicRate: 20 }),
       },
       fakeEnv(),
     );
@@ -344,7 +351,7 @@ describe("PUT /api/tax-year-settings/:startYear/rates", () => {
       {
         method: "PUT",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ ...RATES_INPUT, ...SPLIT_INPUT, basicRateThreshold: 10000 }),
+        body: JSON.stringify({ ...RATES_INPUT, basicRateThreshold: 10000 }),
       },
       fakeEnv(),
     );
@@ -358,7 +365,7 @@ describe("PUT /api/tax-year-settings/:startYear/rates", () => {
       {
         method: "PUT",
         headers: { Cookie: cookie },
-        body: JSON.stringify({ ...RATES_INPUT, ...SPLIT_INPUT, niUpperThreshold: 5000 }),
+        body: JSON.stringify({ ...RATES_INPUT, niUpperThreshold: 5000 }),
       },
       fakeEnv(),
     );
@@ -369,58 +376,116 @@ describe("PUT /api/tax-year-settings/:startYear/rates", () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tax-year-settings/2026/rates",
-      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ ...RATES_INPUT, ...SPLIT_INPUT }) },
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify(RATES_INPUT) },
       fakeEnv({ existingRow: null }),
     );
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.rates).toEqual(RATES_INPUT);
-    expect(body.splitPercentage).toBe(0.75);
+    expect(body.splitPercentage).toBe(DEFAULT_SPLIT_PERCENTAGE);
     expect(body.ratesConfirmedAt).toBeTruthy();
   });
 
-  it("rejects a split percentage above 1", async () => {
+  it("preserves an existing split percentage when saving rates", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tax-year-settings/2026/rates",
-      {
-        method: "PUT",
-        headers: { Cookie: cookie },
-        body: JSON.stringify({ ...RATES_INPUT, splitPercentage: 75 }),
-      },
-      fakeEnv(),
-    );
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatch(/decimal fraction/);
-  });
-
-  it("updates the split percentage for the tax year", async () => {
-    const cookie = await sessionCookie();
-    const res = await app.request(
-      "/api/tax-year-settings/2026/rates",
-      {
-        method: "PUT",
-        headers: { Cookie: cookie },
-        body: JSON.stringify({ ...RATES_INPUT, splitPercentage: 0.6 }),
-      },
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify(RATES_INPUT) },
       fakeEnv({
-        existingRow: { tax_year: "2026/27", start_date: "2026-04-06", monthly_target: 3000, split_percentage: 0.75 },
+        existingRow: { tax_year: "2026/27", start_date: "2026-04-06", monthly_target: 3000, split_percentage: 0.6 },
       }),
     );
-    expect(res.status).toBe(200);
-    expect((await res.json()).splitPercentage).toBe(0.6);
+    const body = await res.json();
+    expect(body.splitPercentage).toBe(0.6);
   });
 
   it("preserves an existing monthly target when saving rates", async () => {
     const cookie = await sessionCookie();
     const res = await app.request(
       "/api/tax-year-settings/2026/rates",
-      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify({ ...RATES_INPUT, ...SPLIT_INPUT }) },
+      { method: "PUT", headers: { Cookie: cookie }, body: JSON.stringify(RATES_INPUT) },
       fakeEnv({
         existingRow: { tax_year: "2026/27", start_date: "2026-04-06", monthly_target: 3000, split_percentage: 0.75 },
       }),
     );
     const body = await res.json();
     expect(body.monthlyTarget).toBe(3000);
+  });
+});
+
+describe("POST /api/tax-year-settings/:startYear/split", () => {
+  it("rejects a request with no session", async () => {
+    const res = await app.request(
+      "/api/tax-year-settings/2026/split",
+      { method: "POST", body: JSON.stringify({ splitPercentage: 0.75 }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a malformed start year", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/not-a-year/split",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ splitPercentage: 0.75 }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects a split percentage above 1", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/2026/split",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ splitPercentage: 75 }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/decimal fraction/);
+  });
+
+  it("rejects a negative split percentage", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/2026/split",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ splitPercentage: -0.1 }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("sets the split percentage for a year with no row yet", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/2026/split",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ splitPercentage: 0.6 }) },
+      fakeEnv({ existingRow: null }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.splitPercentage).toBe(0.6);
+    expect(body.startDate).toBe("2026-04-06");
+  });
+
+  it("updates the split percentage without disturbing the stored target or rates", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/tax-year-settings/2026/split",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ splitPercentage: 0.6 }) },
+      fakeEnv({
+        existingRow: {
+          tax_year: "2026/27",
+          start_date: "2026-04-06",
+          monthly_target: 3000,
+          split_percentage: 0.75,
+          personal_allowance: 12570,
+        },
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.splitPercentage).toBe(0.6);
+    expect(body.monthlyTarget).toBe(3000);
+    expect(body.rates.personalAllowance).toBe(12570);
   });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { currentTaxYearStartYear } from "@sandboxanita1/core";
 import {
   exportAllData,
   getClientCategories,
@@ -10,6 +11,7 @@ import {
   getHourlyRates,
   getInvoiceSettings,
   getNoteCategories,
+  getTaxYearSettings,
   getTimeCategories,
   getTimeEntries,
   getTimeSettings,
@@ -57,7 +59,7 @@ const CATEGORIES_TABS: Array<{ key: CategoriesTab; label: string }> = [
 ];
 
 const BILLING_TABS: Array<{ key: BillingTab; label: string }> = [
-  { key: "rates", label: "Hourly rates" },
+  { key: "rates", label: "Billing rates" },
   { key: "invoice", label: "Invoice settings" },
   { key: "tax", label: "Tax year rates" },
 ];
@@ -309,6 +311,7 @@ function NoteCategoriesTab() {
 function HourlyRatesTab() {
   const [settings, setSettings] = useState<TimeSettings | null>(null);
   const [rates, setRates] = useState<HourlyRate[]>([]);
+  const [splitPercentage, setSplitPercentage] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Owned here, not inside TimeRateManager: refresh() below remounts that
@@ -319,9 +322,14 @@ function HourlyRatesTab() {
   async function refresh() {
     setLoading(true);
     try {
-      const [timeSettings, rateList] = await Promise.all([getTimeSettings(), getHourlyRates()]);
+      const [timeSettings, rateList, taxYearSettings] = await Promise.all([
+        getTimeSettings(),
+        getHourlyRates(),
+        getTaxYearSettings(currentTaxYearStartYear()),
+      ]);
       setSettings(timeSettings);
       setRates(rateList);
+      setSplitPercentage(taxYearSettings.splitPercentage);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load billing settings");
     } finally {
@@ -344,6 +352,7 @@ function HourlyRatesTab() {
     <TimeRateManager
       settings={settings}
       rates={rates}
+      splitPercentage={splitPercentage}
       onChanged={refresh}
       rateMessage={rateMessage}
       onRateMessage={setRateMessage}
