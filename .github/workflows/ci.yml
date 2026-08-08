@@ -63,6 +63,25 @@ jobs:
           workingDirectory: apps/api
           command: d1 migrations apply anita-invoice-tracker --remote
 
+      # Runs right after migrations and before any other wrangler-action
+      # step, including the secret-upload ones below: cloudflare/wrangler-
+      # action@v3 defaults to running `wrangler deploy` whenever a step
+      # doesn't specify its own `command`, even a step whose only stated
+      # job is uploading a secret. That implicit deploy would otherwise
+      # fail here with "R2 bucket not found" before this check ever ran,
+      # since wrangler.toml's r2_buckets binding needs the bucket to
+      # already exist — same "check first, create if missing" shape as
+      # the Pages project check further down.
+      - name: Ensure R2 bucket exists
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! npx wrangler r2 bucket list | grep -q "acm-caseflow-documents"; then
+            npx wrangler r2 bucket create acm-caseflow-documents
+          fi
+
       - name: Set session secret
         uses: cloudflare/wrangler-action@v3
         with:
@@ -73,20 +92,6 @@ jobs:
             SESSION_SECRET
         env:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
-
-      # Ensures the bucket referenced by wrangler.toml's r2_buckets binding
-      # actually exists before the Worker deploy below tries to bind it —
-      # same "check first, create if missing" shape as the Pages project
-      # check further down.
-      - name: Ensure R2 bucket exists
-        working-directory: apps/api
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if ! npx wrangler r2 bucket list | grep -q "acm-caseflow-documents"; then
-            npx wrangler r2 bucket create acm-caseflow-documents
-          fi
 
       # Client correspondence and case documents are legally privileged, so
       # every uploaded file is encrypted (see documentEncryption.ts) with a
