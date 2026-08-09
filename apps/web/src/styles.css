@@ -1137,6 +1137,52 @@ a.secondary:hover {
   font-weight: 600;
 }
 
+/* Clients ledger row disclosure -- same idiom as TasksPage's task cards
+   (expandedId/toggleExpand, collapsed summary vs. full body), just as a
+   table row instead of a card. Keeps the ledger row itself short (the
+   original height complaint) while still surfacing the fee variance
+   signal at a glance in the collapsed row. */
+.client-name-toggle {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.client-name-toggle:hover {
+  text-decoration: underline;
+}
+
+.client-detail-row td {
+  background: var(--paper);
+  padding: 16px 10px;
+}
+
+.client-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px 20px;
+}
+
+.client-detail-field .l {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  margin-bottom: 3px;
+}
+
+.client-detail-field .v {
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
 .expense-breakdown-toggle {
   margin-bottom: 20px;
 }
