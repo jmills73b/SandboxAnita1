@@ -14,6 +14,9 @@ interface ClientRow {
   summary: string | null;
   first_invoice_date: string | null;
   case_status: string;
+  fee_estimate: number | null;
+  fee_estimate_note: string | null;
+  billed_to_date: number;
 }
 
 interface CategoryLinkRow {
@@ -31,8 +34,18 @@ function toClient(row: ClientRow, categories: { id: number; name: string }[]) {
     first_invoice_date: row.first_invoice_date,
     caseStatus: row.case_status,
     categories,
+    feeEstimate: row.fee_estimate,
+    feeEstimateNote: row.fee_estimate_note,
+    billedToDate: row.billed_to_date,
   };
 }
+
+// Correlated subquery rather than a JOIN + GROUP BY -- clients already
+// join category links separately, and folding invoices in too would
+// multiply rows across both joins. Billed is a live sum, not stored,
+// same reasoning as invoices.ts's own computed lagDays.
+const CLIENT_COLUMNS = `id, name, email, summary, first_invoice_date, case_status, fee_estimate, fee_estimate_note,
+  (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE invoices.client_id = clients.id) AS billed_to_date`;
 
 async function fetchCategoryLinks(db: D1Database, clientId?: number): Promise<CategoryLinkRow[]> {
   const query = clientId
@@ -78,7 +91,7 @@ async function setCategoryLinks(db: D1Database, clientId: number, categoryIds: n
 
 async function fetchClient(db: D1Database, id: number): Promise<ReturnType<typeof toClient> | null> {
   const row = await db
-    .prepare("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients WHERE id = ?")
+    .prepare(`SELECT ${CLIENT_COLUMNS} FROM clients WHERE id = ?`)
     .bind(id)
     .first<ClientRow>();
   if (!row) return null;
@@ -91,9 +104,7 @@ async function fetchClient(db: D1Database, id: number): Promise<ReturnType<typeo
 }
 
 clients.get("/", async (c) => {
-  const { results } = await c.env.DB.prepare(
-    "SELECT id, name, email, summary, first_invoice_date, case_status FROM clients ORDER BY name",
-  ).all<ClientRow>();
+  const { results } = await c.env.DB.prepare(`SELECT ${CLIENT_COLUMNS} FROM clients ORDER BY name`).all<ClientRow>();
 
   const links = await fetchCategoryLinks(c.env.DB);
   const categoriesByClient = new Map<number, { id: number; name: string }[]>();
@@ -113,6 +124,8 @@ clients.post("/", async (c) => {
     summary?: string | null;
     categoryIds?: number[];
     caseStatus?: string;
+    feeEstimate?: number | null;
+    feeEstimateNote?: string | null;
   }>();
   const trimmed = body.name?.trim();
   if (!trimmed) {
@@ -121,6 +134,13 @@ clients.post("/", async (c) => {
 
   if (body.caseStatus !== undefined && !isValidClientCaseStatus(body.caseStatus)) {
     return c.json({ error: "Invalid case status" }, 400);
+  }
+  if (
+    body.feeEstimate !== undefined &&
+    body.feeEstimate !== null &&
+    (typeof body.feeEstimate !== "number" || body.feeEstimate <= 0)
+  ) {
+    return c.json({ error: "Fee estimate must be a positive number" }, 400);
   }
   // Contacts created through the app (directly, or auto-created inline
   // while adding an invoice/time entry) start life as a lead, not an
@@ -136,9 +156,16 @@ clients.post("/", async (c) => {
   }
 
   const created = await c.env.DB.prepare(
-    "INSERT INTO clients (name, email, summary, case_status) VALUES (?, ?, ?, ?) RETURNING id",
+    "INSERT INTO clients (name, email, summary, case_status, fee_estimate, fee_estimate_note) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
   )
-    .bind(trimmed, body.email?.trim() || null, body.summary?.trim() || null, caseStatus)
+    .bind(
+      trimmed,
+      body.email?.trim() || null,
+      body.summary?.trim() || null,
+      caseStatus,
+      body.feeEstimate ?? null,
+      body.feeEstimateNote?.trim() || null,
+    )
     .first<{ id: number }>();
 
   if (!created) {
@@ -170,6 +197,8 @@ clients.patch("/:id", async (c) => {
     summary?: string | null;
     categoryIds?: number[];
     caseStatus?: string;
+    feeEstimate?: number | null;
+    feeEstimateNote?: string | null;
   }>();
 
   const trimmedName = body.name?.trim();
@@ -182,14 +211,26 @@ clients.patch("/:id", async (c) => {
   if (body.caseStatus !== undefined && !isValidClientCaseStatus(body.caseStatus)) {
     return c.json({ error: "Invalid case status" }, 400);
   }
+  if (
+    body.feeEstimate !== undefined &&
+    body.feeEstimate !== null &&
+    (typeof body.feeEstimate !== "number" || body.feeEstimate <= 0)
+  ) {
+    return c.json({ error: "Fee estimate must be a positive number" }, 400);
+  }
 
   const name = trimmedName ?? existing.name;
   const email = body.email !== undefined ? body.email?.trim() || null : existing.email;
   const summary = body.summary !== undefined ? body.summary?.trim() || null : existing.summary;
   const caseStatus = body.caseStatus ?? existing.caseStatus;
+  const feeEstimate = body.feeEstimate !== undefined ? body.feeEstimate : existing.feeEstimate;
+  const feeEstimateNote =
+    body.feeEstimateNote !== undefined ? body.feeEstimateNote?.trim() || null : existing.feeEstimateNote;
 
-  await c.env.DB.prepare("UPDATE clients SET name = ?, email = ?, summary = ?, case_status = ? WHERE id = ?")
-    .bind(name, email, summary, caseStatus, id)
+  await c.env.DB.prepare(
+    "UPDATE clients SET name = ?, email = ?, summary = ?, case_status = ?, fee_estimate = ?, fee_estimate_note = ? WHERE id = ?",
+  )
+    .bind(name, email, summary, caseStatus, feeEstimate, feeEstimateNote, id)
     .run();
 
   if (body.categoryIds !== undefined) {

@@ -13,8 +13,20 @@ import { ClientDocumentsPage } from "./ClientDocumentsPage";
 import { ClientNotesPage } from "./ClientNotesPage";
 import { MarkdownToolbar } from "./MarkdownToolbar";
 
+const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+
 function caseStatusClass(status: string): string {
   return `status-${status.toLowerCase()}`;
+}
+
+// Anything within 5% either way reads as "on track" rather than a false
+// precision of "2% over" -- estimates are quoted verbally, not measured.
+function feeVariance(client: Client): { label: string; over: boolean } | null {
+  if (client.feeEstimate == null) return null;
+  const diff = client.billedToDate - client.feeEstimate;
+  if (Math.abs(diff) <= client.feeEstimate * 0.05) return { label: "On track", over: false };
+  const pct = Math.round((Math.abs(diff) / client.feeEstimate) * 100);
+  return diff > 0 ? { label: `${pct}% over`, over: true } : { label: `${pct}% under`, over: false };
 }
 
 function truncate(text: string, max: number): string {
@@ -82,6 +94,8 @@ export function ClientsPage({
   const [summary, setSummary] = useState("");
   const [categoryIds, setCategoryIds] = useState<number[]>([]);
   const [caseStatus, setCaseStatus] = useState<ClientCaseStatus>("Prospective");
+  const [feeEstimate, setFeeEstimate] = useState("");
+  const [feeEstimateNote, setFeeEstimateNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [editName, setEditName] = useState("");
@@ -89,6 +103,8 @@ export function ClientsPage({
   const [editSummary, setEditSummary] = useState("");
   const [editCategoryIds, setEditCategoryIds] = useState<number[]>([]);
   const [editCaseStatus, setEditCaseStatus] = useState<ClientCaseStatus>("Prospective");
+  const [editFeeEstimate, setEditFeeEstimate] = useState("");
+  const [editFeeEstimateNote, setEditFeeEstimateNote] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -130,8 +146,20 @@ export function ClientsPage({
     setSummary("");
     setCategoryIds([]);
     setCaseStatus("Prospective");
+    setFeeEstimate("");
+    setFeeEstimateNote("");
     setError(null);
     setMode({ kind: "add" });
+  }
+
+  // "" means no estimate (valid — most clients won't have one); anything
+  // else must parse to a positive number, or null is returned as a
+  // signal to reject the submit rather than silently save NaN/0.
+  function parseFeeEstimate(value: string): number | null | undefined {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
   }
 
   function cancelAdd() {
@@ -149,6 +177,12 @@ export function ClientsPage({
       return;
     }
 
+    const parsedFeeEstimate = parseFeeEstimate(feeEstimate);
+    if (parsedFeeEstimate === undefined) {
+      setError("Fee estimate must be a positive number");
+      return;
+    }
+
     setSubmitting(true);
     try {
       await addClient({
@@ -157,6 +191,8 @@ export function ClientsPage({
         summary: summary.trim() || null,
         categoryIds,
         caseStatus,
+        feeEstimate: parsedFeeEstimate,
+        feeEstimateNote: feeEstimateNote.trim() || null,
       });
       setMode({ kind: "list" });
       await refresh();
@@ -173,6 +209,8 @@ export function ClientsPage({
     setEditSummary(client.summary ?? "");
     setEditCategoryIds(client.categories.map((c) => c.id));
     setEditCaseStatus(client.caseStatus);
+    setEditFeeEstimate(client.feeEstimate != null ? String(client.feeEstimate) : "");
+    setEditFeeEstimateNote(client.feeEstimateNote ?? "");
     setEditError(null);
     setMode({ kind: "edit", id: client.id });
   }
@@ -190,6 +228,12 @@ export function ClientsPage({
       return;
     }
 
+    const parsedFeeEstimate = parseFeeEstimate(editFeeEstimate);
+    if (parsedFeeEstimate === undefined) {
+      setEditError("Fee estimate must be a positive number");
+      return;
+    }
+
     setEditSubmitting(true);
     try {
       await updateClient(id, {
@@ -198,6 +242,8 @@ export function ClientsPage({
         summary: editSummary.trim() || null,
         categoryIds: editCategoryIds,
         caseStatus: editCaseStatus,
+        feeEstimate: parsedFeeEstimate,
+        feeEstimateNote: editFeeEstimateNote.trim() || null,
       });
       setMode({ kind: "list" });
       await refresh();
@@ -281,6 +327,29 @@ export function ClientsPage({
               </select>
             </label>
           </div>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Fee estimate</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="input-compact"
+                value={feeEstimate}
+                onChange={(event) => setFeeEstimate(event.target.value)}
+                placeholder="e.g. 3500"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Estimate note</span>
+              <input
+                type="text"
+                className="input-compact"
+                value={feeEstimateNote}
+                onChange={(event) => setFeeEstimateNote(event.target.value)}
+                placeholder="e.g. Verbal estimate given 12 Aug"
+              />
+            </label>
+          </div>
           <div className="edit-field">
             <span>Summary</span>
             <MarkdownToolbar textareaRef={summaryRef} onChange={setSummary} />
@@ -316,6 +385,8 @@ export function ClientsPage({
   }
 
   if (mode.kind === "edit") {
+    const editingClient = clients.find((c) => c.id === mode.id);
+    const editingVariance = editingClient ? feeVariance(editingClient) : null;
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
@@ -353,6 +424,42 @@ export function ClientsPage({
               </select>
             </label>
           </div>
+          <div className="edit-row">
+            <label className="edit-field">
+              <span>Fee estimate</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                className="input-compact"
+                value={editFeeEstimate}
+                onChange={(event) => setEditFeeEstimate(event.target.value)}
+                placeholder="e.g. 3500"
+              />
+            </label>
+            <label className="edit-field">
+              <span>Estimate note</span>
+              <input
+                type="text"
+                className="input-compact"
+                value={editFeeEstimateNote}
+                onChange={(event) => setEditFeeEstimateNote(event.target.value)}
+                placeholder="e.g. Verbal estimate given 12 Aug"
+              />
+            </label>
+          </div>
+          {editingClient && editingClient.feeEstimate != null && (
+            <p className="hint">
+              Billed to date: {money.format(editingClient.billedToDate)}
+              {editingVariance && (
+                <>
+                  {" · "}
+                  <span className={editingVariance.over ? "fee-variance-over" : undefined}>
+                    {editingVariance.label}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
           <div className="edit-field">
             <span>Summary</span>
             <MarkdownToolbar textareaRef={editSummaryRef} onChange={setEditSummary} />
@@ -489,11 +596,15 @@ export function ClientsPage({
                 <th>Summary</th>
                 <th>Categories</th>
                 <th>Case status</th>
+                <th className="num">Estimate</th>
+                <th>Variance</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredClients.map((client) => (
+              {filteredClients.map((client) => {
+                const variance = feeVariance(client);
+                return (
                 <tr key={client.id}>
                   <td>{client.name}</td>
                   <td>{client.email ?? "—"}</td>
@@ -524,6 +635,8 @@ export function ClientsPage({
                       ))}
                     </select>
                   </td>
+                  <td className="num">{client.feeEstimate != null ? money.format(client.feeEstimate) : "—"}</td>
+                  <td className={variance?.over ? "fee-variance-over" : undefined}>{variance?.label ?? "—"}</td>
                   <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(client)}>
@@ -548,7 +661,8 @@ export function ClientsPage({
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
