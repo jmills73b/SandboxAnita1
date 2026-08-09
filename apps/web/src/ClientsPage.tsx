@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@sandboxanita1/core";
 import {
   addClient,
@@ -288,7 +289,7 @@ export function ClientsPage({
     return (
       <>
         <button type="button" className="back-link" onClick={cancelAdd}>
-          ← Clients
+          <Icon name="back" /> Clients
         </button>
         <h1 className="sr-only">Add client</h1>
         <form onSubmit={handleSubmit} className="edit-panel">
@@ -374,10 +375,10 @@ export function ClientsPage({
           )}
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add client"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add client"}
             </button>
             <button type="button" onClick={cancelAdd} disabled={submitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </form>
@@ -391,7 +392,7 @@ export function ClientsPage({
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
-          ← Clients
+          <Icon name="back" /> Clients
         </button>
         <h1 className="sr-only">Editing {editName || "client"}</h1>
         <div className="edit-panel">
@@ -484,10 +485,10 @@ export function ClientsPage({
           )}
           <div className="row-actions">
             <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
-              {editSubmitting ? "Saving…" : "Save"}
+              <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </div>
@@ -520,13 +521,13 @@ export function ClientsPage({
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Clients</h1>
 
       <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
-          + Add client
+          <Icon name="add" /> Add client
         </button>
       </div>
 
@@ -627,23 +628,23 @@ export function ClientsPage({
                       <td>
                         <div className="row-actions">
                           <button type="button" onClick={() => startEdit(client)}>
-                            Edit
+                            <Icon name="edit" /> Edit
                           </button>
                           <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
-                            Invoices
+                            <Icon name="invoices" /> Invoices
                           </button>
                           <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
-                            Notes
+                            <Icon name="notepad" /> Notes
                           </button>
                           <button
                             type="button"
                             className="secondary"
                             onClick={() => setMode({ kind: "documents", id: client.id })}
                           >
-                            Documents
+                            <Icon name="documents" /> Documents
                           </button>
                           <button type="button" className="danger" onClick={() => handleDelete(client)}>
-                            Delete
+                            <Icon name="delete" /> Delete
                           </button>
                         </div>
                       </td>

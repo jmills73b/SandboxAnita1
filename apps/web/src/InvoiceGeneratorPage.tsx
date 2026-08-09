@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   createInvoiceBatch,
@@ -163,7 +164,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Invoice Generator</h1>
 
@@ -266,7 +267,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
                     onClick={handleGenerate}
                     disabled={selectedIds.size === 0 || generating || !settings?.fromName}
                   >
-                    {generating ? "Generating…" : "Generate invoice"}
+                    <Icon name="generator" /> {generating ? "Generating…" : "Generate invoice"}
                   </button>
                 </div>
               </div>
@@ -325,7 +326,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
                             onClick={() => handleRegenerate(batch.id)}
                             disabled={downloadingBatchId === batch.id}
                           >
-                            {downloadingBatchId === batch.id ? "Preparing…" : "Download PDF"}
+                            <Icon name="generator" /> {downloadingBatchId === batch.id ? "Preparing…" : "Download PDF"}
                           </button>
                           <button
                             type="button"
@@ -333,7 +334,7 @@ export function InvoiceGeneratorPage({ onBack }: { onBack: () => void }) {
                             onClick={() => handleDeleteBatch(batch)}
                             disabled={deletingBatchId === batch.id}
                           >
-                            {deletingBatchId === batch.id ? "Deleting…" : "Delete"}
+                            <Icon name="delete" /> {deletingBatchId === batch.id ? "Deleting…" : "Delete"}
                           </button>
                         </div>
                       </td>

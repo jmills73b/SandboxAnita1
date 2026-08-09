@@ -179,9 +179,10 @@ All `.tsx` files live flat in `apps/web/src/` (no subfolders). Roughly three kin
   `InvoiceSettingsManager`, `TaxRatesManager`, `FeatureManager`, `InviteCodePanel`,
   `UsagePanel`, `AppearanceManager`.
 - **Shared components**: `Brand`, `ThemeQuickSwitch`, `TaskQuickPanel`,
-  `DayOfWeekPicker`, `FollowUpPicker`, `MarkdownToolbar`. Plus `App.tsx` (auth/setup
-  state resolution), `main.tsx` (entry point), `SignedInApp.tsx` (screen routing
-  shell), `SetupPage.tsx`, `LoginPage.tsx`.
+  `DayOfWeekPicker`, `FollowUpPicker`, `MarkdownToolbar`, `icons` (the `<Icon />`
+  component and its `IconName` union — see [Icon system](#icon-system)). Plus
+  `App.tsx` (auth/setup state resolution), `main.tsx` (entry point), `SignedInApp.tsx`
+  (screen routing shell), `SetupPage.tsx`, `LoginPage.tsx`.
 
 Client-scoped detail pages (`ClientNotesPage`, `ClientDocumentsPage`) are reached
 *from* `ClientsPage`, not from the dashboard directly.
@@ -287,6 +288,43 @@ before inventing a new class:
 - **Stat display**: `.client-stat` / `.client-stats`, `.stat-groups` — dashboard-style
   stat tiles reused on several record pages (Clients, Expenses, Invoices, Time
   Keeping).
+
+### Icon system
+
+Every button/link across the app pairs a hand-drawn SVG icon with its existing text
+label — icons are a scan aid for a solo practitioner, not a replacement for the label,
+so nothing is icon-only. All icons live in one file, `apps/web/src/icons.tsx`: a
+`PATHS: Record<IconName, JSX.Element>` map of hand-drafted `<path>`/`<circle>`/`<line>`
+primitives in a 24×24 viewBox (1.8px stroke, round caps/joins, `fill: none`,
+`stroke: currentColor`), rendered via a single `<Icon name="..." />` component. There
+is no icon library — the CSP that governs both this bundle and published artifacts
+avoids third-party icon CDNs, and hand-drawing keeps every icon visually consistent
+with the pre-existing sun/moon icons in `ThemeQuickSwitch.tsx` (whose `SunIcon`/
+`MoonIcon`/`SmileIcon` are exported and reused as-is by `AppearanceManager.tsx`, rather
+than redrawn, so the header quick switch and the full Appearance picker always show
+identical icons).
+
+**One icon, one meaning, everywhere.** Edit is always the pencil, Delete always the
+bin, Save always the check mark, regardless of which page or record type it appears
+on — there are no per-entity icon variants. `.icon` sizes at `1.1em` (so it scales
+automatically with whichever button's font-size context it's in — 15px default
+buttons, 12px `.row-actions` buttons, 12.5px `.back-link`) via a `size="lg"` prop
+(`.icon-lg`, fixed 22px) reserved for the Dashboard tile headings, which sit in a
+`.tile-heading` flex wrapper alongside `.tile-name`. A single combined selector —
+`button, a.secondary, .back-link { display: inline-flex; align-items: center; gap:
+6px; }` in `styles.css` — aligns an icon with its label the same way in every button
+variant at once; a button with no icon child renders identically to before.
+
+**Documents vs. Invoices, the one deliberate collision to avoid**: Invoices get a
+ledger/receipt icon (a billing *record*, nothing downloadable). Invoice Generator gets
+a printer icon, used identically for both "Generate invoice" and "Download PDF" since
+both are the same "produce a PDF right now" operation. Documents get a folder icon for
+the section and a tray-download icon used *only* for Documents' own Download action,
+nowhere else in the app. The printer (produce) and the tray (retrieve) never share an
+icon or cross that boundary, even though both end with a file leaving the browser. The
+10 dashboard-tile/section icons (Clients, Time Keeping, Invoices, Performance, Invoice
+Generator, Expenses, Tax, Tasks, Documents, Admin) are identity anchors for
+navigation, not verbs, and stay fixed per section.
 
 ### Status pill convention
 

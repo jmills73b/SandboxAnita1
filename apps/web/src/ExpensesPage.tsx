@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   addExpense,
@@ -199,7 +200,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelAdd}>
-          ← Expenses
+          <Icon name="back" /> Expenses
         </button>
         <h1 className="sr-only">Add expense</h1>
         <form onSubmit={handleSubmit} className="edit-panel">
@@ -251,10 +252,10 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add expense"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add expense"}
             </button>
             <button type="button" onClick={cancelAdd} disabled={submitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </form>
@@ -266,7 +267,7 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
-          ← Expenses
+          <Icon name="back" /> Expenses
         </button>
         <h1 className="sr-only">Editing {editDescription || "expense"}</h1>
         <div className="edit-panel">
@@ -324,10 +325,10 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
-              {editSubmitting ? "Saving…" : "Save"}
+              <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </div>
@@ -338,13 +339,13 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Expenses</h1>
 
       <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
-          + Add expense
+          <Icon name="add" /> Add expense
         </button>
       </div>
 
@@ -464,10 +465,10 @@ export function ExpensesPage({ onBack }: { onBack: () => void }) {
                   <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(expense)}>
-                        Edit
+                        <Icon name="edit" /> Edit
                       </button>
                       <button type="button" className="danger" onClick={() => handleDelete(expense)}>
-                        Delete
+                        <Icon name="delete" /> Delete
                       </button>
                     </div>
                   </td>

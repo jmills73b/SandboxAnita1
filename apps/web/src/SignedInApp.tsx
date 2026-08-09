@@ -5,6 +5,7 @@ import { AllDocumentsPage } from "./AllDocumentsPage";
 import { ClientsPage } from "./ClientsPage";
 import { Dashboard, type DashboardTile } from "./Dashboard";
 import { ExpensesPage } from "./ExpensesPage";
+import { Icon } from "./icons";
 import { InvoiceGeneratorPage } from "./InvoiceGeneratorPage";
 import { InvoicesPage } from "./InvoicesPage";
 import { PerformancePage } from "./PerformancePage";
@@ -105,7 +106,7 @@ export function SignedInApp({
                   setShowTasks((prev) => !prev);
                 }}
               >
-                Tasks
+                <Icon name="tasks" /> Tasks
                 {dueTaskCount > 0 && <span className="task-badge">{dueTaskCount}</span>}
               </button>
             )}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import { getUsage, type UsageStats } from "./api";
 
 const count = new Intl.NumberFormat("en-GB");
@@ -50,7 +51,9 @@ export function UsagePanel({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className="edit-panel">
-      <p className="edit-panel-title">Cloudflare usage today</p>
+      <p className="edit-panel-title">
+        <Icon name="usage" /> Cloudflare usage today
+      </p>
       <p className="hint">
         How close today's activity is to Cloudflare's free-tier daily limits. Resets at midnight UTC.
       </p>

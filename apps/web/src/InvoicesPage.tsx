@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   currentTaxYearStartYear,
   INVOICE_STATUSES,
@@ -361,7 +362,7 @@ export function InvoicesPage({
     return (
       <>
         <button type="button" className="back-link" onClick={cancelAdd}>
-          ← Invoices
+          <Icon name="back" /> Invoices
         </button>
         <h1 className="sr-only">Add invoice</h1>
         <form onSubmit={handleSubmit} className="edit-panel">
@@ -429,10 +430,10 @@ export function InvoicesPage({
           )}
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add invoice"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add invoice"}
             </button>
             <button type="button" onClick={cancelAdd} disabled={submitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </form>
@@ -444,7 +445,7 @@ export function InvoicesPage({
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
-          ← Invoices
+          <Icon name="back" /> Invoices
         </button>
         <h1 className="sr-only">Editing invoice for {editClientName || "client"}</h1>
         <div className="edit-panel">
@@ -525,10 +526,10 @@ export function InvoicesPage({
           )}
           <div className="row-actions">
             <button type="button" onClick={() => saveEdit(view.id)} disabled={editSubmitting}>
-              {editSubmitting ? "Saving…" : "Save"}
+              <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </div>
@@ -539,13 +540,13 @@ export function InvoicesPage({
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Invoices</h1>
 
       <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
-          + Add invoice
+          <Icon name="add" /> Add invoice
         </button>
       </div>
 
@@ -649,10 +650,10 @@ export function InvoicesPage({
                   <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(invoice)}>
-                        Edit
+                        <Icon name="edit" /> Edit
                       </button>
                       <button type="button" className="danger" onClick={() => handleDelete(invoice)}>
-                        Delete
+                        <Icon name="delete" /> Delete
                       </button>
                     </div>
                   </td>
@@ -689,7 +690,7 @@ function ClientDetail({
     <>
       <h1 className="sr-only">{clientName}</h1>
       <button type="button" className="back-link" onClick={onBack}>
-        ← All invoices
+        <Icon name="back" /> All invoices
       </button>
       <div className="client-header">
         <h2>{clientName}</h2>

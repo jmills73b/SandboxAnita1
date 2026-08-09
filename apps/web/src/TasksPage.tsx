@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { firstMatchingWeekday } from "@sandboxanita1/core";
 import {
   actOnTask,
@@ -357,7 +358,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
               {task.status === "active" && (
                 <>
                   <button type="button" onClick={() => handleAction(task.id, "completed")} disabled={actingId === task.id}>
-                    Done
+                    <Icon name="done" /> Done
                   </button>
                   <button
                     type="button"
@@ -365,7 +366,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                     onClick={() => handleAction(task.id, "skipped")}
                     disabled={actingId === task.id}
                   >
-                    Skip
+                    <Icon name="skip" /> Skip
                   </button>
                   <button
                     type="button"
@@ -373,22 +374,22 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
                     onClick={() => handleAction(task.id, "not_needed")}
                     disabled={actingId === task.id}
                   >
-                    Not needed
+                    <Icon name="not-needed" /> Not needed
                   </button>
                 </>
               )}
               {task.status !== "done" && (
                 <>
                   <button type="button" className="secondary" onClick={() => startEdit(task)}>
-                    Edit
+                    <Icon name="edit" /> Edit
                   </button>
                   <button type="button" className="secondary" onClick={() => togglePause(task)} disabled={actingId === task.id}>
-                    {task.status === "paused" ? "Resume" : "Pause"}
+                    <Icon name={task.status === "paused" ? "resume" : "pause"} /> {task.status === "paused" ? "Resume" : "Pause"}
                   </button>
                 </>
               )}
               <button type="button" className="secondary" onClick={() => loadHistory(task.id)}>
-                {historyLoadingId === task.id ? "Loading…" : historyByTask[task.id] ? "History" : "Show history"}
+                <Icon name="history" /> {historyLoadingId === task.id ? "Loading…" : historyByTask[task.id] ? "History" : "Show history"}
               </button>
             </div>
             {historyByTask[task.id] && (
@@ -418,7 +419,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelAdd}>
-          ← Tasks &amp; Reminders
+          <Icon name="back" /> Tasks &amp; Reminders
         </button>
         <h1 className="sr-only">Add reminder</h1>
         <form onSubmit={handleSubmit} className="edit-panel">
@@ -482,10 +483,10 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add reminder"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add reminder"}
             </button>
             <button type="button" onClick={cancelAdd} disabled={submitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </form>
@@ -497,7 +498,7 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
-          ← Tasks &amp; Reminders
+          <Icon name="back" /> Tasks &amp; Reminders
         </button>
         <h1 className="sr-only">Editing {editTitle || "reminder"}</h1>
         <div className="edit-panel">
@@ -554,10 +555,10 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
-              {editSubmitting ? "Saving…" : "Save"}
+              <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </div>
@@ -568,13 +569,13 @@ export function TasksPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Tasks &amp; Reminders</h1>
 
       <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
-          + Add reminder
+          <Icon name="add" /> Add reminder
         </button>
       </div>
 

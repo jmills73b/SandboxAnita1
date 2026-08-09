@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   addTimeCategory,
   deleteTimeCategory,
@@ -107,14 +108,15 @@ export function TimeCategoryManager({
                     ))}
                 </select>
                 <button type="button" className="danger" onClick={() => confirmDelete(cat.id)} disabled={busy}>
-                  {busy ? "Deleting…" : "Confirm delete"}
+                  <Icon name="delete" /> {busy ? "Deleting…" : "Confirm delete"}
                 </button>
                 <button type="button" onClick={() => setDeletingId(null)} disabled={busy}>
-                  Cancel
+                  <Icon name="cancel" /> Cancel
                 </button>
               </>
             ) : (
               <>
+                <Icon name="tag" />
                 <input
                   className="input-compact"
                   defaultValue={cat.name}
@@ -125,7 +127,7 @@ export function TimeCategoryManager({
                   {count} time entr{count === 1 ? "y" : "ies"}
                 </span>
                 <button type="button" className="danger" onClick={() => startDelete(cat.id)}>
-                  Delete
+                  <Icon name="delete" /> Delete
                 </button>
               </>
             )}
@@ -140,7 +142,7 @@ export function TimeCategoryManager({
           placeholder="New category name"
         />
         <button type="submit" disabled={adding}>
-          {adding ? "Adding…" : "Add category"}
+          <Icon name="add" /> {adding ? "Adding…" : "Add category"}
         </button>
       </form>
 

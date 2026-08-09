@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { addClientCategory, deleteClientCategory, renameClientCategory, type Client, type ClientCategory } from "./api";
 
 export function ClientCategoryManager({
@@ -82,6 +83,7 @@ export function ClientCategoryManager({
     <div>
       {categories.map((cat) => (
         <div className="category-row" key={cat.id}>
+          <Icon name="tag" />
           <input
             className="input-compact"
             defaultValue={cat.name}
@@ -97,7 +99,7 @@ export function ClientCategoryManager({
             onClick={() => handleDelete(cat.id, cat.name)}
             disabled={deletingId === cat.id}
           >
-            {deletingId === cat.id ? "Deleting…" : "Delete"}
+            <Icon name="delete" /> {deletingId === cat.id ? "Deleting…" : "Delete"}
           </button>
         </div>
       ))}
@@ -109,7 +111,7 @@ export function ClientCategoryManager({
           placeholder="New category name"
         />
         <button type="submit" disabled={adding}>
-          {adding ? "Adding…" : "Add category"}
+          <Icon name="add" /> {adding ? "Adding…" : "Add category"}
         </button>
       </form>
 

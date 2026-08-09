@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   addExpenseCategory,
   deleteExpenseCategory,
@@ -112,14 +113,15 @@ export function ExpenseCategoryManager({
                     ))}
                 </select>
                 <button type="button" className="danger" onClick={() => confirmDelete(cat.id)} disabled={busy}>
-                  {busy ? "Deleting…" : "Confirm delete"}
+                  <Icon name="delete" /> {busy ? "Deleting…" : "Confirm delete"}
                 </button>
                 <button type="button" onClick={() => setDeletingId(null)} disabled={busy}>
-                  Cancel
+                  <Icon name="cancel" /> Cancel
                 </button>
               </>
             ) : (
               <>
+                <Icon name="tag" />
                 <input
                   className="input-compact"
                   defaultValue={cat.name}
@@ -130,7 +132,7 @@ export function ExpenseCategoryManager({
                   {count} expense{count === 1 ? "" : "s"}
                 </span>
                 <button type="button" className="danger" onClick={() => startDelete(cat.id)}>
-                  Delete
+                  <Icon name="delete" /> Delete
                 </button>
               </>
             )}
@@ -145,7 +147,7 @@ export function ExpenseCategoryManager({
           placeholder="New category name"
         />
         <button type="submit" disabled={adding}>
-          {adding ? "Adding…" : "Add category"}
+          <Icon name="add" /> {adding ? "Adding…" : "Add category"}
         </button>
       </form>
 

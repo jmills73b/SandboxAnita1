@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { addDocumentCategory, deleteDocumentCategory, renameDocumentCategory, type DocumentCategory } from "./api";
 
 // Unlike ClientCategoryManager/NoteCategoryManager, there's no "N documents"
@@ -78,6 +79,7 @@ export function DocumentCategoryManager({
     <div>
       {categories.map((cat) => (
         <div className="category-row" key={cat.id}>
+          <Icon name="tag" />
           <input
             className="input-compact"
             defaultValue={cat.name}
@@ -90,7 +92,7 @@ export function DocumentCategoryManager({
             onClick={() => handleDelete(cat.id, cat.name)}
             disabled={deletingId === cat.id}
           >
-            {deletingId === cat.id ? "Deleting…" : "Delete"}
+            <Icon name="delete" /> {deletingId === cat.id ? "Deleting…" : "Delete"}
           </button>
         </div>
       ))}
@@ -102,7 +104,7 @@ export function DocumentCategoryManager({
           placeholder="New category name"
         />
         <button type="submit" disabled={adding}>
-          {adding ? "Adding…" : "Add category"}
+          <Icon name="add" /> {adding ? "Adding…" : "Add category"}
         </button>
       </form>
 
