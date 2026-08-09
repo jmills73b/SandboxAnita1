@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@sandboxanita1/core";
 import {
   addClient,
@@ -27,10 +27,6 @@ function feeVariance(client: Client): { label: string; over: boolean } | null {
   if (Math.abs(diff) <= client.feeEstimate * 0.05) return { label: "On track", over: false };
   const pct = Math.round((Math.abs(diff) / client.feeEstimate) * 100);
   return diff > 0 ? { label: `${pct}% over`, over: true } : { label: `${pct}% under`, over: false };
-}
-
-function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
 // A checkbox group rendered as toggle chips rather than a native
@@ -111,6 +107,7 @@ export function ClientsPage({
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const summaryRef = useRef<HTMLTextAreaElement>(null);
   const editSummaryRef = useRef<HTMLTextAreaElement>(null);
@@ -131,6 +128,10 @@ export function ClientsPage({
   useEffect(() => {
     refresh();
   }, []);
+
+  function toggleExpand(id: number) {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }
 
   function toggleCategory(id: number) {
     setCategoryIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
@@ -592,11 +593,7 @@ export function ClientsPage({
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Email</th>
-                <th>Summary</th>
-                <th>Categories</th>
                 <th>Case status</th>
-                <th className="num">Estimate</th>
                 <th>Variance</th>
                 <th>Actions</th>
               </tr>
@@ -604,63 +601,108 @@ export function ClientsPage({
             <tbody>
               {filteredClients.map((client) => {
                 const variance = feeVariance(client);
+                const expanded = expandedId === client.id;
                 return (
-                <tr key={client.id}>
-                  <td>{client.name}</td>
-                  <td>{client.email ?? "—"}</td>
-                  <td>{client.summary ? truncate(client.summary, 60) : "—"}</td>
-                  <td>
-                    {client.categories.length > 0 ? (
-                      <div className="chip-group">
-                        {client.categories.map((cat) => (
-                          <span className="chip" key={cat.id}>
-                            {cat.name}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      "—"
+                  <Fragment key={client.id}>
+                    <tr>
+                      <td>
+                        <button type="button" className="client-name-toggle" onClick={() => toggleExpand(client.id)}>
+                          {client.name}
+                        </button>
+                      </td>
+                      <td>
+                        <select
+                          className={`status status-select ${caseStatusClass(client.caseStatus)}`}
+                          value={client.caseStatus}
+                          onChange={(event) => handleCaseStatusChange(client, event.target.value)}
+                        >
+                          {CLIENT_CASE_STATUSES.map((status) => (
+                            <option key={status} value={status}>
+                              {status}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={variance?.over ? "fee-variance-over" : undefined}>{variance?.label ?? "—"}</td>
+                      <td>
+                        <div className="row-actions">
+                          <button type="button" onClick={() => startEdit(client)}>
+                            Edit
+                          </button>
+                          <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
+                            Invoices
+                          </button>
+                          <button type="button" className="danger" onClick={() => handleDelete(client)}>
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr className="client-detail-row">
+                        <td colSpan={4}>
+                          <div className="client-detail-grid">
+                            <div className="client-detail-field">
+                              <div className="l">Email</div>
+                              <div className="v">{client.email ?? "—"}</div>
+                            </div>
+                            <div className="client-detail-field">
+                              <div className="l">Summary</div>
+                              <div className="v">{client.summary ?? "—"}</div>
+                            </div>
+                            <div className="client-detail-field">
+                              <div className="l">Categories</div>
+                              <div className="v">
+                                {client.categories.length > 0 ? (
+                                  <div className="chip-group">
+                                    {client.categories.map((cat) => (
+                                      <span className="chip" key={cat.id}>
+                                        {cat.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  "—"
+                                )}
+                              </div>
+                            </div>
+                            <div className="client-detail-field">
+                              <div className="l">Fee estimate</div>
+                              <div className="v">
+                                {client.feeEstimate != null ? money.format(client.feeEstimate) : "Not set"}
+                              </div>
+                            </div>
+                            <div className="client-detail-field">
+                              <div className="l">Billed to date</div>
+                              <div className="v">{money.format(client.billedToDate)}</div>
+                            </div>
+                            <div className="client-detail-field">
+                              <div className="l">Variance</div>
+                              <div className={`v ${variance?.over ? "fee-variance-over" : ""}`}>
+                                {variance?.label ?? "—"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="row-actions" style={{ marginTop: 14 }}>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => setMode({ kind: "notes", id: client.id })}
+                            >
+                              Notes
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => setMode({ kind: "documents", id: client.id })}
+                            >
+                              Documents
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td>
-                    <select
-                      className={`status status-select ${caseStatusClass(client.caseStatus)}`}
-                      value={client.caseStatus}
-                      onChange={(event) => handleCaseStatusChange(client, event.target.value)}
-                    >
-                      {CLIENT_CASE_STATUSES.map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="num">{client.feeEstimate != null ? money.format(client.feeEstimate) : "—"}</td>
-                  <td className={variance?.over ? "fee-variance-over" : undefined}>{variance?.label ?? "—"}</td>
-                  <td>
-                    <div className="row-actions">
-                      <button type="button" onClick={() => startEdit(client)}>
-                        Edit
-                      </button>
-                      <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
-                        Invoices
-                      </button>
-                      <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
-                        Notes
-                      </button>
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => setMode({ kind: "documents", id: client.id })}
-                      >
-                        Documents
-                      </button>
-                      <button type="button" className="danger" onClick={() => handleDelete(client)}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
