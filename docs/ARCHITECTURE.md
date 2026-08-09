@@ -287,7 +287,11 @@ before inventing a new class:
   (horizontally-scrolling sub-tab row), `.mode-toggle` (segmented toggle control).
 - **Stat display**: `.client-stat` / `.client-stats`, `.stat-groups` — dashboard-style
   stat tiles reused on several record pages (Clients, Expenses, Invoices, Time
-  Keeping).
+  Keeping) and the Dashboard hub's own headline "Overview" row (`Dashboard.tsx`:
+  received this tax year, outstanding, tasks needing attention, cumulative
+  performance vs target). `.client-stat .n.stat-warn` flags a figure that needs
+  action (via `--warn`, no new hue). `.section-eyebrow` is the small uppercase
+  label above a section (e.g. "Overview" / "Everything else" on the Dashboard).
 
 ### Icon system
 
