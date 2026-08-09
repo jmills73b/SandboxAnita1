@@ -18,6 +18,9 @@ export interface Client {
   first_invoice_date: string | null;
   caseStatus: ClientCaseStatus;
   categories: ClientCategory[];
+  feeEstimate: number | null;
+  feeEstimateNote: string | null;
+  billedToDate: number;
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -69,6 +72,8 @@ export function addClient(input: {
   summary?: string | null;
   categoryIds?: number[];
   caseStatus?: ClientCaseStatus;
+  feeEstimate?: number | null;
+  feeEstimateNote?: string | null;
 }): Promise<Client> {
   return request("/api/clients", { method: "POST", body: JSON.stringify(input) });
 }
@@ -81,6 +86,8 @@ export function updateClient(
     summary: string | null;
     categoryIds: number[];
     caseStatus: ClientCaseStatus;
+    feeEstimate: number | null;
+    feeEstimateNote: string | null;
   }>,
 ): Promise<Client> {
   return request(`/api/clients/${id}`, { method: "PATCH", body: JSON.stringify(patch) });

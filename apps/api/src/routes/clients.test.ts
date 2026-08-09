@@ -16,6 +16,8 @@ interface StoredClient {
   summary: string | null;
   first_invoice_date: string | null;
   case_status?: string;
+  fee_estimate?: number | null;
+  fee_estimate_note?: string | null;
 }
 
 function fakeEnv(
@@ -25,6 +27,7 @@ function fakeEnv(
     links?: Record<number, number[]>; // clientId -> categoryIds
     invoiceCounts?: Record<number, number>; // clientId -> count
     timeEntryCounts?: Record<number, number>; // clientId -> count
+    invoiceTotals?: Record<number, number>; // clientId -> SUM(total_amount), mirrors the real billed_to_date subquery
   } = {},
 ): Env {
   const clientStore = new Map<number, StoredClient>((options.clients ?? []).map((c) => [c.id, c]));
@@ -34,6 +37,7 @@ function fakeEnv(
   );
   const invoiceCounts = options.invoiceCounts ?? {};
   const timeEntryCounts = options.timeEntryCounts ?? {};
+  const invoiceTotals = options.invoiceTotals ?? {};
   let nextId = Math.max(0, ...[...clientStore.keys()]) + 1;
 
   function linksFor(clientId: number) {
@@ -54,14 +58,31 @@ function fakeEnv(
           },
           first: async <T,>() => {
             if (sql.includes("INSERT INTO clients")) {
-              const [name, email, summary, caseStatus] = boundArgs as [string, string | null, string | null, string];
+              const [name, email, summary, caseStatus, feeEstimate, feeEstimateNote] = boundArgs as [
+                string,
+                string | null,
+                string | null,
+                string,
+                number | null,
+                string | null,
+              ];
               const id = nextId++;
-              clientStore.set(id, { id, name, email, summary, first_invoice_date: null, case_status: caseStatus });
+              clientStore.set(id, {
+                id,
+                name,
+                email,
+                summary,
+                first_invoice_date: null,
+                case_status: caseStatus,
+                fee_estimate: feeEstimate,
+                fee_estimate_note: feeEstimateNote,
+              });
               return { id } as T;
             }
-            if (sql.includes("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients WHERE id = ?")) {
+            if (sql.includes("FROM clients WHERE id = ?")) {
               const [id] = boundArgs as [number];
-              return (clientStore.get(id) ?? null) as T;
+              const stored = clientStore.get(id);
+              return (stored ? { ...stored, billed_to_date: invoiceTotals[id] ?? 0 } : null) as T;
             }
             if (sql.includes("SELECT COUNT(*) as count FROM invoices WHERE client_id = ?")) {
               const [id] = boundArgs as [number];
@@ -74,8 +95,10 @@ function fakeEnv(
             return null;
           },
           all: async <T,>() => {
-            if (sql.includes("SELECT id, name, email, summary, first_invoice_date, case_status FROM clients ORDER BY name")) {
-              const rows = [...clientStore.values()].sort((a, b) => a.name.localeCompare(b.name));
+            if (sql.includes("FROM clients ORDER BY name")) {
+              const rows = [...clientStore.values()]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((row) => ({ ...row, billed_to_date: invoiceTotals[row.id] ?? 0 }));
               return { results: rows as T[], success: true, meta: {} };
             }
             if (sql.includes("FROM client_categories WHERE id IN")) {
@@ -95,15 +118,27 @@ function fakeEnv(
           },
           run: async () => {
             if (sql.includes("UPDATE clients SET name")) {
-              const [name, email, summary, caseStatus, id] = boundArgs as [
+              const [name, email, summary, caseStatus, feeEstimate, feeEstimateNote, id] = boundArgs as [
                 string,
                 string | null,
                 string | null,
                 string,
+                number | null,
+                string | null,
                 number,
               ];
               const existing = clientStore.get(id);
-              if (existing) clientStore.set(id, { ...existing, name, email, summary, case_status: caseStatus });
+              if (existing) {
+                clientStore.set(id, {
+                  ...existing,
+                  name,
+                  email,
+                  summary,
+                  case_status: caseStatus,
+                  fee_estimate: feeEstimate,
+                  fee_estimate_note: feeEstimateNote,
+                });
+              }
             }
             if (sql.includes("DELETE FROM client_category_links WHERE client_id = ?")) {
               const [clientId] = boundArgs as [number];
@@ -156,6 +191,7 @@ describe("GET /api/clients", () => {
           { id: 1, name: "Financial Remedy" },
           { id: 2, name: "High Net Worth" },
         ],
+        billedToDate: 0,
       },
     ]);
   });
@@ -168,6 +204,19 @@ describe("GET /api/clients", () => {
       fakeEnv({ clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }] }),
     );
     expect((await res.json())[0].categories).toEqual([]);
+  });
+
+  it("computes billedToDate from the client's invoice total", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      { headers: { Cookie: cookie } },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+        invoiceTotals: { 1: 2940 },
+      }),
+    );
+    expect((await res.json())[0].billedToDate).toBe(2940);
   });
 });
 
@@ -209,6 +258,9 @@ describe("POST /api/clients", () => {
       first_invoice_date: null,
       caseStatus: "Prospective",
       categories: [],
+      feeEstimate: null,
+      feeEstimateNote: null,
+      billedToDate: 0,
     });
   });
 
@@ -263,6 +315,33 @@ describe("POST /api/clients", () => {
     const res = await app.request(
       "/api/clients",
       { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Smith", caseStatus: "Retired" }) },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("creates a client with a fee estimate and note", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      {
+        method: "POST",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ name: "Smith", feeEstimate: 3500, feeEstimateNote: "Verbal estimate given 12 Aug" }),
+      },
+      fakeEnv(),
+    );
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.feeEstimate).toBe(3500);
+    expect(body.feeEstimateNote).toBe("Verbal estimate given 12 Aug");
+  });
+
+  it("rejects a zero or negative fee estimate", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients",
+      { method: "POST", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Smith", feeEstimate: 0 }) },
       fakeEnv(),
     );
     expect(res.status).toBe(400);
@@ -342,6 +421,66 @@ describe("PATCH /api/clients/:id", () => {
       }),
     );
     expect(res.status).toBe(400);
+  });
+
+  it("sets a fee estimate and note", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      {
+        method: "PATCH",
+        headers: { Cookie: cookie },
+        body: JSON.stringify({ feeEstimate: 3500, feeEstimateNote: "Verbal estimate given 12 Aug" }),
+      },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.feeEstimate).toBe(3500);
+    expect(body.feeEstimateNote).toBe("Verbal estimate given 12 Aug");
+  });
+
+  it("clears a fee estimate by sending null", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ feeEstimate: null }) },
+      fakeEnv({
+        clients: [
+          { id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null, fee_estimate: 3500 },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).feeEstimate).toBeNull();
+  });
+
+  it("rejects a zero or negative fee estimate", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ feeEstimate: -100 }) },
+      fakeEnv({
+        clients: [{ id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null }],
+      }),
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("leaves the fee estimate untouched when not provided", async () => {
+    const cookie = await sessionCookie();
+    const res = await app.request(
+      "/api/clients/1",
+      { method: "PATCH", headers: { Cookie: cookie }, body: JSON.stringify({ name: "Renamed" }) },
+      fakeEnv({
+        clients: [
+          { id: 1, name: "Smith", email: null, summary: null, first_invoice_date: null, fee_estimate: 3500 },
+        ],
+      }),
+    );
+    expect((await res.json()).feeEstimate).toBe(3500);
   });
 });
 

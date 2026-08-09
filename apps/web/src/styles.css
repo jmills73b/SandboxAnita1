@@ -1128,6 +1128,15 @@ a.secondary:hover {
   margin-top: 2px;
 }
 
+/* Fee estimate variance -- same treatment as the task urgency labels
+   (.task-due-date.urgency-gettingLate): --warn as a text color on the
+   figure itself, not a filled pill. Under/on-track needs no rule of its
+   own, same reasoning as invoice status's plain-outline "in between". */
+.fee-variance-over {
+  color: var(--warn);
+  font-weight: 600;
+}
+
 .expense-breakdown-toggle {
   margin-bottom: 20px;
 }
