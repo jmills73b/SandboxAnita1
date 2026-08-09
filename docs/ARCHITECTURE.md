@@ -91,6 +91,7 @@ idempotent data imports from the spreadsheet this app replaces.
 | 0021 | `0021_client_case_status.sql` | Adds `clients.case_status` (defaults `Active` for historical-import correctness). |
 | 0022 | `0022_copy_2026_27_rates_to_2025_26.sql` | One-time explicit correction: overwrites 2025/26 rates with 2026/27's. |
 | 0023 | `0023_documents.sql` | Adds `document_categories`, `documents` (R2 pointer, AES-GCM `iv`, soft delete). |
+| 0024 | `0024_client_fee_estimate.sql` | Adds `clients.fee_estimate`/`fee_estimate_note` (both nullable). |
 
 ### Current tables (23)
 
@@ -154,6 +155,15 @@ Notable business logic worth knowing about, not obvious from the route list alon
 - **Tasks** advance `next_due_date` through a recurrence engine
   (`packages/core/src/taskRecurrence.ts`) on each logged action, rather than storing a
   precomputed schedule.
+- **Fee estimate vs. actual** (`clients.fee_estimate`): compared against
+  `SUM(invoices.total_amount)` for the client (`billedToDate`, computed via a
+  correlated subquery, not stored) — the gross fee billed to the paying party, not
+  `anita_income`, since the estimate is what the client/firm was quoted. Scoped to the
+  *client*, not a matter, because `invoices.matter` is currently free text rather than
+  a first-class entity — a client re-engaging for an unrelated second matter blends
+  its billed total into the same figure as the first, unless the estimate is manually
+  reset. A dedicated `matters` table would fix this but wasn't built; the client-level
+  version was chosen as the smaller, well-precedented change.
 
 ## Frontend
 
