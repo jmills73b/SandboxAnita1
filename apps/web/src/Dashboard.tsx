@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { currentTaxYearStartYear } from "@sandboxanita1/core";
 import { getInvoices, getTaxYearSettings } from "./api";
+import { Icon } from "./icons";
 import { currentYearToDateSummary } from "./PerformancePage";
 
 const money = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
@@ -10,60 +11,70 @@ const TILES = [
     key: "clients",
     name: "Clients",
     desc: "Maintain the client list, with contact details and categories.",
+    icon: "clients",
     active: true,
   },
   {
     key: "time",
     name: "Time Keeping",
     desc: "Log chargeable time against a client, in configurable billing units.",
+    icon: "time",
     active: true,
   },
   {
     key: "invoices",
     name: "Invoice Management",
     desc: "Log invoices, track status, and see performance by client.",
+    icon: "invoices",
     active: true,
   },
   {
     key: "performance",
     name: "Performance & Targets",
     desc: "See where you stand against this month's target.",
+    icon: "performance",
     active: true,
   },
   {
     key: "invoice-generator",
     name: "Invoice Generator",
     desc: "Bill Newmans for invoices awaiting payment, and see past invoices sent.",
+    icon: "generator",
     active: true,
   },
   {
     key: "expenses",
     name: "Expenses",
     desc: "Log and categorise business expenses.",
+    icon: "expenses",
     active: true,
   },
   {
     key: "tax",
     name: "Tax & NI Estimate",
     desc: "Estimate this year's income tax and National Insurance.",
+    icon: "tax",
     active: true,
   },
   {
     key: "tasks",
     name: "Tasks & Reminders",
     desc: "Track recurring and one-off things to do, with due dates and history.",
+    icon: "tasks",
     active: true,
   },
   {
     key: "documents",
     name: "All Documents",
     desc: "Search every stored document across every client in one place.",
+    icon: "documents",
     active: true,
   },
   {
     key: "admin",
     name: "Admin & Settings",
     desc: "Manage categories, billing settings, and account tools for every function.",
+    icon: "admin",
     active: true,
   },
 ] as const;
@@ -110,7 +121,10 @@ export function Dashboard({
               onClick={() => onSelect(tile.key)}
             >
               <div className="tile-top">
-                <span className="tile-name">{tile.name}</span>
+                <span className="tile-heading">
+                  <Icon name={tile.icon} size="lg" />
+                  <span className="tile-name">{tile.name}</span>
+                </span>
               </div>
               <div>
                 <p className="tile-desc">{tile.desc}</p>
@@ -125,7 +139,10 @@ export function Dashboard({
           ) : (
             <div key={tile.key} className="hero-tile upcoming">
               <div className="tile-top">
-                <span className="tile-name">{tile.name}</span>
+                <span className="tile-heading">
+                  <Icon name={tile.icon} size="lg" />
+                  <span className="tile-name">{tile.name}</span>
+                </span>
                 <span className="tile-status">Coming soon</span>
               </div>
               <p className="tile-desc">{tile.desc}</p>

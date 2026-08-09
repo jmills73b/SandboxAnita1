@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   deleteDocument,
   documentDownloadUrl,
@@ -117,7 +118,7 @@ export function ClientDocumentsPage({
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Clients
+        <Icon name="back" /> Clients
       </button>
       <h1 className="sr-only">Documents for {clientName}</h1>
       <p className="edit-panel-title">Documents for {clientName}</p>
@@ -166,7 +167,7 @@ export function ClientDocumentsPage({
           </select>
         </label>
         <button type="submit" disabled={uploading}>
-          {uploading ? "Uploading…" : "Upload"}
+          <Icon name="upload" /> {uploading ? "Uploading…" : "Upload"}
         </button>
       </form>
       {uploadError && (
@@ -195,7 +196,9 @@ export function ClientDocumentsPage({
           <tbody>
             {documents.map((doc) => (
               <tr key={doc.id}>
-                <td>{doc.filename}</td>
+                <td>
+                  <Icon name="doc-file" /> {doc.filename}
+                </td>
                 <td>{doc.categoryName ?? "Uncategorised"}</td>
                 <td>{doc.direction === "inbound" ? "Inbound" : "Outbound"}</td>
                 <td>{formatSize(doc.size)}</td>
@@ -210,7 +213,7 @@ export function ClientDocumentsPage({
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Download
+                      <Icon name="download" /> Download
                     </a>
                     <button
                       type="button"
@@ -218,7 +221,7 @@ export function ClientDocumentsPage({
                       onClick={() => handleDelete(doc)}
                       disabled={deletingId === doc.id}
                     >
-                      {deletingId === doc.id ? "Deleting…" : "Delete"}
+                      <Icon name="delete" /> {deletingId === doc.id ? "Deleting…" : "Delete"}
                     </button>
                   </div>
                 </td>

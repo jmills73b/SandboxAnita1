@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { updateFirm, updateInvoiceSettings, type Firm, type InvoiceSettings } from "./api";
 
 export function InvoiceSettingsManager({
@@ -169,7 +170,7 @@ export function InvoiceSettingsManager({
 
       <div className="row-actions">
         <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Save"}
+          <Icon name="save" /> {submitting ? "Saving…" : "Save"}
         </button>
       </div>
     </form>

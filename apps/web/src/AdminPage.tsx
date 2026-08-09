@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear } from "@sandboxanita1/core";
 import {
   exportAllData,
@@ -94,7 +95,7 @@ export function AdminPage({
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Admin &amp; Settings</h1>
 
@@ -533,7 +534,7 @@ function ExportDataTab() {
       </p>
       <div className="row-actions">
         <button type="button" onClick={handleExport} disabled={exporting}>
-          {exporting ? "Exporting…" : "Export data"}
+          <Icon name="export" /> {exporting ? "Exporting…" : "Export data"}
         </button>
       </div>
       {error && (

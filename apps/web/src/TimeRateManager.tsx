@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear } from "@sandboxanita1/core";
 import {
   addHourlyRate,
@@ -172,7 +173,7 @@ export function TimeRateManager({
           />
         </label>
         <button type="submit" disabled={savingSplit}>
-          {savingSplit ? "Saving…" : "Save"}
+          <Icon name="save" /> {savingSplit ? "Saving…" : "Save"}
         </button>
       </form>
       {splitError && (
@@ -196,7 +197,7 @@ export function TimeRateManager({
           />
         </label>
         <button type="submit" disabled={savingUnit}>
-          {savingUnit ? "Saving…" : "Save"}
+          <Icon name="save" /> {savingUnit ? "Saving…" : "Save"}
         </button>
       </form>
       {unitError && (
@@ -239,7 +240,7 @@ export function TimeRateManager({
                   <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => handleSaveRate(rate.id)} disabled={editRateSaving}>
-                        {editRateSaving ? "Saving…" : "Save"}
+                        <Icon name="save" /> {editRateSaving ? "Saving…" : "Save"}
                       </button>
                       <button
                         type="button"
@@ -247,7 +248,7 @@ export function TimeRateManager({
                         onClick={cancelEditRate}
                         disabled={editRateSaving}
                       >
-                        Cancel
+                        <Icon name="cancel" /> Cancel
                       </button>
                     </div>
                   </td>
@@ -259,7 +260,7 @@ export function TimeRateManager({
                   <td>{rate.endDate ?? "Current"}</td>
                   <td>
                     <button type="button" className="secondary" onClick={() => startEditRate(rate)}>
-                      Edit
+                      <Icon name="edit" /> Edit
                     </button>
                   </td>
                 </tr>
@@ -298,7 +299,7 @@ export function TimeRateManager({
           />
         </label>
         <button type="submit" disabled={addingRate}>
-          {addingRate ? "Adding…" : "Add rate"}
+          <Icon name="add" /> {addingRate ? "Adding…" : "Add rate"}
         </button>
       </form>
       {rateError && (

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   currentTaxYearStartYear,
   INVOICE_STATUSES,
@@ -294,7 +295,7 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Performance &amp; Targets</h1>
 
@@ -356,11 +357,11 @@ export function PerformancePage({ onBack }: { onBack: () => void }) {
             autoFocus
           />
           <button type="submit" disabled={targetSubmitting}>
-            {targetSubmitting ? "Saving…" : "Save target"}
+            <Icon name="save" /> {targetSubmitting ? "Saving…" : "Save target"}
           </button>
           {editingTarget && (
             <button type="button" className="secondary" onClick={() => setEditingTarget(false)}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           )}
         </form>
@@ -452,7 +453,7 @@ function PerformanceSummary({
           </span>
         </div>
         <button type="button" className="secondary" onClick={onEditTarget}>
-          Edit target
+          <Icon name="edit" /> Edit target
         </button>
       </div>
 

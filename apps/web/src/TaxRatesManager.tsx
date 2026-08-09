@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel } from "@sandboxanita1/core";
 import { getTaxYearSettings, setTaxYearRates, type TaxRates, type TaxYearSettings } from "./api";
 
@@ -196,7 +197,7 @@ function RatesForm({
 
       <div className="row-actions">
         <button type="submit" disabled={submitting}>
-          {submitting ? "Saving…" : "Save rates"}
+          <Icon name="save" /> {submitting ? "Saving…" : "Save rates"}
         </button>
       </div>
     </form>

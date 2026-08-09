@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import { currentTaxYearStartYear, recentTaxYearStartYears, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
 import {
   addClient,
@@ -251,7 +252,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelAdd}>
-          ← Time Keeping
+          <Icon name="back" /> Time Keeping
         </button>
         <h1 className="sr-only">Add time entry</h1>
         <form onSubmit={handleSubmit} className="edit-panel">
@@ -329,10 +330,10 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add time"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add time"}
             </button>
             <button type="button" onClick={cancelAdd} disabled={submitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </form>
@@ -344,7 +345,7 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
     return (
       <>
         <button type="button" className="back-link" onClick={cancelEdit}>
-          ← Time Keeping
+          <Icon name="back" /> Time Keeping
         </button>
         <h1 className="sr-only">Editing {editDescription || "time entry"}</h1>
         <div className="edit-panel">
@@ -422,10 +423,10 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
           )}
           <div className="row-actions">
             <button type="button" onClick={() => saveEdit(mode.id)} disabled={editSubmitting}>
-              {editSubmitting ? "Saving…" : "Save"}
+              <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-              Cancel
+              <Icon name="cancel" /> Cancel
             </button>
           </div>
         </div>
@@ -436,13 +437,13 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Time Keeping</h1>
 
       <div className="page-primary-action">
         <button type="button" onClick={startAdd}>
-          + Add time
+          <Icon name="add" /> Add time
         </button>
       </div>
 
@@ -547,10 +548,10 @@ export function TimeKeepingPage({ onBack }: { onBack: () => void }) {
                   <td>
                     <div className="row-actions">
                       <button type="button" onClick={() => startEdit(entry)}>
-                        Edit
+                        <Icon name="edit" /> Edit
                       </button>
                       <button type="button" className="danger" onClick={() => handleDelete(entry)}>
-                        Delete
+                        <Icon name="delete" /> Delete
                       </button>
                     </div>
                   </td>

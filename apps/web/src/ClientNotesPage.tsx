@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Icon } from "./icons";
 import {
   actOnTask,
   addClientNote,
@@ -315,7 +316,7 @@ export function ClientNotesPage({
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Clients
+        <Icon name="back" /> Clients
       </button>
       <h1 className="sr-only">Notes for {clientName}</h1>
       <p className="edit-panel-title">Notes for {clientName}</p>
@@ -364,7 +365,7 @@ export function ClientNotesPage({
                         onClick={() => handleFollowUpAction(task.id, "completed")}
                         disabled={followUpActingId === task.id}
                       >
-                        Done
+                        <Icon name="done" /> Done
                       </button>
                       <button
                         type="button"
@@ -372,7 +373,7 @@ export function ClientNotesPage({
                         onClick={() => handleFollowUpAction(task.id, "skipped")}
                         disabled={followUpActingId === task.id}
                       >
-                        Skip
+                        <Icon name="skip" /> Skip
                       </button>
                       <button
                         type="button"
@@ -380,7 +381,7 @@ export function ClientNotesPage({
                         onClick={() => handleFollowUpAction(task.id, "not_needed")}
                         disabled={followUpActingId === task.id}
                       >
-                        Not needed
+                        <Icon name="not-needed" /> Not needed
                       </button>
                     </div>
                   </div>
@@ -391,7 +392,15 @@ export function ClientNotesPage({
 
           <div className="row-actions">
             <button type="button" className="secondary" onClick={() => setShowNewFollowUp((prev) => !prev)}>
-              {showNewFollowUp ? "Hide follow-up" : "+ Set a follow-up"}
+              {showNewFollowUp ? (
+                <>
+                  <Icon name="cancel" /> Hide follow-up
+                </>
+              ) : (
+                <>
+                  <Icon name="add" /> Set a follow-up
+                </>
+              )}
             </button>
           </div>
           {showNewFollowUp && (
@@ -417,7 +426,7 @@ export function ClientNotesPage({
           />
           <div className="row-actions">
             <button type="submit" disabled={submitting}>
-              {submitting ? "Saving…" : "Add note"}
+              <Icon name="add" /> {submitting ? "Saving…" : "Add note"}
             </button>
           </div>
         </form>
@@ -461,10 +470,10 @@ export function ClientNotesPage({
                         )}
                         <div className="row-actions">
                           <button type="button" onClick={() => saveEdit(note.id)} disabled={editSubmitting}>
-                            {editSubmitting ? "Saving…" : "Save"}
+                            <Icon name="save" /> {editSubmitting ? "Saving…" : "Save"}
                           </button>
                           <button type="button" onClick={cancelEdit} disabled={editSubmitting}>
-                            Cancel
+                            <Icon name="cancel" /> Cancel
                           </button>
                         </div>
                       </>
@@ -478,9 +487,10 @@ export function ClientNotesPage({
                         />
                         <div className="row-actions">
                           <button type="button" onClick={() => startEdit(note)}>
-                            Edit
+                            <Icon name="edit" /> Edit
                           </button>
                           <button type="button" className="secondary" onClick={() => loadHistory(note.id)}>
+                            <Icon name="history" />{" "}
                             {historyLoadingId === note.id
                               ? "Loading…"
                               : historyByNote[note.id]
@@ -492,7 +502,15 @@ export function ClientNotesPage({
                             className="secondary"
                             onClick={() => setFollowUpForNoteId((prev) => (prev === note.id ? null : note.id))}
                           >
-                            {followUpForNoteId === note.id ? "Hide follow-up" : "Set follow-up"}
+                            {followUpForNoteId === note.id ? (
+                              <>
+                                <Icon name="cancel" /> Hide follow-up
+                              </>
+                            ) : (
+                              <>
+                                <Icon name="add" /> Set follow-up
+                              </>
+                            )}
                           </button>
                         </div>
                         {followUpForNoteId === note.id && (

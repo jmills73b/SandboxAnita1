@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import { deleteDocument, documentDownloadUrl, getClients, getDocuments, type CaseDocument, type Client } from "./api";
 
 const sizeFormat = new Intl.NumberFormat("en-GB", { maximumFractionDigits: 1 });
@@ -72,7 +73,7 @@ export function AllDocumentsPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">All Documents</h1>
 
@@ -133,7 +134,9 @@ export function AllDocumentsPage({ onBack }: { onBack: () => void }) {
           <tbody>
             {filtered.map((doc) => (
               <tr key={doc.id}>
-                <td>{doc.filename}</td>
+                <td>
+                  <Icon name="doc-file" /> {doc.filename}
+                </td>
                 <td>{doc.clientName}</td>
                 <td>{doc.categoryName ?? "Uncategorised"}</td>
                 <td>{doc.direction === "inbound" ? "Inbound" : "Outbound"}</td>
@@ -149,7 +152,7 @@ export function AllDocumentsPage({ onBack }: { onBack: () => void }) {
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Download
+                      <Icon name="download" /> Download
                     </a>
                     <button
                       type="button"
@@ -157,7 +160,7 @@ export function AllDocumentsPage({ onBack }: { onBack: () => void }) {
                       onClick={() => handleDelete(doc)}
                       disabled={deletingId === doc.id}
                     >
-                      {deletingId === doc.id ? "Deleting…" : "Delete"}
+                      <Icon name="delete" /> {deletingId === doc.id ? "Deleting…" : "Delete"}
                     </button>
                   </div>
                 </td>

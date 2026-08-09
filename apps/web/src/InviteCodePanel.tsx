@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import { getAccountSettings, updateAccountSettings } from "./api";
 
 // Random, not memorable — this is what stands between the login page's
@@ -80,7 +81,7 @@ export function InviteCodePanel({ onClose }: { onClose?: () => void }) {
           {saved && !error && <p className="hint">Saved.</p>}
           <div className="row-actions">
             <button type="button" onClick={handleSave} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
+              <Icon name="save" /> {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" className="secondary" onClick={handleGenerate} disabled={saving}>
               Generate random code

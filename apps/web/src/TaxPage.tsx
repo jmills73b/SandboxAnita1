@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Icon } from "./icons";
 import {
   calculateTaxAndNi,
   currentTaxYearStartYear,
@@ -106,7 +107,7 @@ export function TaxPage({ onBack }: { onBack: () => void }) {
   return (
     <>
       <button type="button" className="back-link" onClick={onBack}>
-        ← Dashboard
+        <Icon name="back" /> Dashboard
       </button>
       <h1 className="sr-only">Tax &amp; NI Estimate</h1>
 

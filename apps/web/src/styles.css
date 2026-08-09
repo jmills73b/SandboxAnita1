@@ -276,7 +276,6 @@ button.brand {
 }
 
 .back-link {
-  display: inline-block;
   font-size: 12.5px;
   color: var(--ink-faint);
   text-decoration: none;
@@ -933,6 +932,18 @@ textarea {
   resize: vertical;
 }
 
+/* inline-flex + gap here (rather than per-variant) so every button,
+   .secondary, .danger, .row-actions button, a.secondary, and .back-link
+   lines an icon up with its label the same way everywhere -- a button
+   with no icon child renders identically to before. */
+button,
+a.secondary,
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 button {
   font-family: var(--sans);
   font-size: 15px;
@@ -947,6 +958,27 @@ button {
 button:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* Sized in em so an icon scales with whichever button's font-size it
+   sits in (15px default buttons, 12px .row-actions buttons, 12.5px
+   .back-link) without a separate class per context. Stroke-only,
+   inherits currentColor -- Delete's icon goes --error-red for free via
+   the existing .danger class, no new color declared here. */
+.icon {
+  width: 1.1em;
+  height: 1.1em;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.icon-lg {
+  width: 22px;
+  height: 22px;
 }
 
 button.secondary {
@@ -1650,6 +1682,12 @@ a.secondary:hover {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 10px;
+}
+
+.hero-tile .tile-heading {
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
