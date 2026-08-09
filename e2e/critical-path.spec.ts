@@ -17,7 +17,7 @@ test("create account, add an invoice, see it on the ledger", async ({ page }) =>
   await page.getByRole("button", { name: "Create account" }).click();
 
   await page.getByRole("button", { name: "Invoice Management" }).click();
-  await page.getByRole("button", { name: "+ Add invoice" }).click();
+  await page.getByRole("button", { name: "Add invoice" }).click();
 
   await page.getByRole("button", { name: "New client" }).click();
   await page.getByPlaceholder("New client name").fill(clientName);
@@ -28,6 +28,6 @@ test("create account, add an invoice, see it on the ledger", async ({ page }) =>
   await expect(row).toBeVisible();
   await expect(row).toContainText("£123.45");
 
-  await page.getByRole("button", { name: "← Dashboard" }).click();
+  await page.getByRole("button", { name: "Dashboard" }).click();
   await expect(page.getByRole("button", { name: "Invoice Management" })).toBeVisible();
 });
