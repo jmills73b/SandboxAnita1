@@ -8,7 +8,7 @@ import {
   taxYearStartDate,
   type TaxAndNiBreakdown,
   type TaxRateSettings,
-} from "@sandboxanita1/core";
+} from "@acm-caseflow/core";
 import {
   getExpenses,
   getInvoices,

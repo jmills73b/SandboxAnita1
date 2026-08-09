@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { DEFAULT_SPLIT_PERCENTAGE, taxYearLabel, taxYearStartDate } from "@sandboxanita1/core";
+import { DEFAULT_SPLIT_PERCENTAGE, taxYearLabel, taxYearStartDate } from "@acm-caseflow/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 

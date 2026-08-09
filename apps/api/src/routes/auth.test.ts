@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashPassword, createSessionToken } from "@sandboxanita1/core";
+import { hashPassword, createSessionToken } from "@acm-caseflow/core";
 import app from "../index";
 import type { Env } from "../index";
 

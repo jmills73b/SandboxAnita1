@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { isValidClientCaseStatus } from "@sandboxanita1/core";
+import { isValidClientCaseStatus } from "@acm-caseflow/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 
