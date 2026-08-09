@@ -630,19 +630,6 @@ export function ClientsPage({
                           <button type="button" onClick={() => startEdit(client)}>
                             <Icon name="edit" /> Edit
                           </button>
-                          <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
-                            <Icon name="invoices" /> Invoices
-                          </button>
-                          <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
-                            <Icon name="notepad" /> Notes
-                          </button>
-                          <button
-                            type="button"
-                            className="secondary"
-                            onClick={() => setMode({ kind: "documents", id: client.id })}
-                          >
-                            <Icon name="documents" /> Documents
-                          </button>
                           <button type="button" className="danger" onClick={() => handleDelete(client)}>
                             <Icon name="delete" /> Delete
                           </button>
@@ -689,6 +676,21 @@ export function ClientsPage({
                                 {variance?.label ?? "—"}
                               </div>
                             </div>
+                          </div>
+                          <div className="row-actions">
+                            <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
+                              <Icon name="invoices" /> Invoices
+                            </button>
+                            <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
+                              <Icon name="notepad" /> Notes
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => setMode({ kind: "documents", id: client.id })}
+                            >
+                              <Icon name="documents" /> Documents
+                            </button>
                           </div>
                         </td>
                       </tr>

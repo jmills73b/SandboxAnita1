@@ -1222,6 +1222,10 @@ a.secondary:hover {
   color: var(--ink);
 }
 
+.client-detail-grid + .row-actions {
+  margin-top: 16px;
+}
+
 .expense-breakdown-toggle {
   margin-bottom: 20px;
 }
