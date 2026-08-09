@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "./icons";
-import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@sandboxanita1/core";
+import { CLIENT_CASE_STATUSES, type ClientCaseStatus } from "@acm-caseflow/core";
 import {
   addClient,
   deleteClient,

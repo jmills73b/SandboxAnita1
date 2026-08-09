@@ -6,7 +6,7 @@ import {
   recentTaxYearStartYears,
   taxMonthKey,
   taxYearLabel,
-} from "@sandboxanita1/core";
+} from "@acm-caseflow/core";
 import { getInvoices, getTaxYearSettings, setTaxYearTarget, type Invoice, type TaxYearSettings } from "./api";
 import { statusClass } from "./InvoicesPage";
 

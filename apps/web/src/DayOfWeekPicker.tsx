@@ -1,4 +1,4 @@
-import { WEEKDAY_LABELS } from "@sandboxanita1/core";
+import { WEEKDAY_LABELS } from "@acm-caseflow/core";
 
 // "single" is used for weekly/fortnightly/four-weekly — picking a day
 // there is purely a convenience for computing the first due date

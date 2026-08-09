@@ -1,5 +1,5 @@
 {
-  "name": "@sandboxanita1/api",
+  "name": "@acm-caseflow/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply anita-invoice-tracker --remote"
   },
   "dependencies": {
-    "@sandboxanita1/core": "*",
+    "@acm-caseflow/core": "*",
     "hono": "^4.6.9"
   },
   "devDependencies": {

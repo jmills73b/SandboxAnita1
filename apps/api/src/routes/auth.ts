@@ -1,6 +1,6 @@
 import { Hono, type Context, type Next } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
-import { createSessionToken, hashPassword, verifyPassword, verifySessionToken } from "@sandboxanita1/core";
+import { createSessionToken, hashPassword, verifyPassword, verifySessionToken } from "@acm-caseflow/core";
 import type { AppEnv } from "../index";
 
 const SESSION_COOKIE = "session";

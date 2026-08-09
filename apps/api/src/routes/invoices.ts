@@ -6,7 +6,7 @@ import {
   INVOICE_STATUSES,
   isValidInvoiceStatus,
   taxYearLabel,
-} from "@sandboxanita1/core";
+} from "@acm-caseflow/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 

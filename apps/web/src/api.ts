@@ -1,4 +1,4 @@
-import type { ClientCaseStatus } from "@sandboxanita1/core";
+import type { ClientCaseStatus } from "@acm-caseflow/core";
 
 // Every call goes to the Worker API on its own domain, so credentials:
 // "include" is required for the session cookie to be sent — plain

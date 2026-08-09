@@ -1,5 +1,5 @@
 {
-  "name": "@sandboxanita1/web",
+  "name": "@acm-caseflow/web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sandboxanita1/core": "*",
+    "@acm-caseflow/core": "*",
     "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

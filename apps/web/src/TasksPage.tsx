@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Icon } from "./icons";
-import { firstMatchingWeekday } from "@sandboxanita1/core";
+import { firstMatchingWeekday } from "@acm-caseflow/core";
 import {
   actOnTask,
   addTask,

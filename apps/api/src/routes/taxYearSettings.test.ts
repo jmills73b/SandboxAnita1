@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createSessionToken, DEFAULT_SPLIT_PERCENTAGE } from "@sandboxanita1/core";
+import { createSessionToken, DEFAULT_SPLIT_PERCENTAGE } from "@acm-caseflow/core";
 import app from "../index";
 import type { Env } from "../index";
 

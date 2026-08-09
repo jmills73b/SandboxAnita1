@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { formatDaysOfWeek, isValidTaskFrequency, nextDueDate, parseDaysOfWeek, type TaskFrequency } from "@sandboxanita1/core";
+import { formatDaysOfWeek, isValidTaskFrequency, nextDueDate, parseDaysOfWeek, type TaskFrequency } from "@acm-caseflow/core";
 import type { AppEnv } from "../index";
 import { requireAuth } from "./auth";
 
