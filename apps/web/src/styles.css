@@ -1160,6 +1160,13 @@ a.secondary:hover {
   margin-top: 2px;
 }
 
+/* Dashboard headline row only -- flags a figure that needs action
+   (something outstanding, a late task) without introducing a new hue:
+   --warn is already used for Cloudflare usage and tax-rate nudges. */
+.client-stat .n.stat-warn {
+  color: var(--warn);
+}
+
 /* Fee estimate variance -- same treatment as the task urgency labels
    (.task-due-date.urgency-gettingLate): --warn as a text color on the
    figure itself, not a filled pill. Under/on-track needs no rule of its
@@ -1637,13 +1644,30 @@ a.secondary:hover {
   margin-top: 16px;
 }
 
-/* Dashboard hub — auto-fit rather than a fixed 2 columns, so wider
-   screens (where .page itself now grows, see above) reflow into 3-4
-   narrower tiles instead of just stretching two of them very wide. */
+.section-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 10px 2px;
+}
+
+/* Dashboard hub — fixed column counts rather than auto-fit, so the 10
+   tiles always land as full rows (5x2 desktop, 2x5 tablet, 1x10 phone)
+   instead of auto-fit's incidental "however many fit at this width",
+   which for exactly 10 tiles landed as an orphaned 4/4/2 on a common
+   desktop width. Fewer tiles (some toggled off) just leave a shorter
+   last row rather than a mismatched one. */
 .hero-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
+}
+
+@media (max-width: 1300px) and (min-width: 601px) {
+  .hero-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 600px) {
@@ -1658,7 +1682,8 @@ a.secondary:hover {
   min-height: 128px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 10px;
   border-radius: 3px;
   text-align: left;
   background: var(--paper-raised);
@@ -1699,21 +1724,12 @@ a.secondary:hover {
 
 .hero-tile .tile-desc {
   font-size: 12.5px;
-  margin-top: 10px;
   color: var(--ink-soft);
   max-width: 32ch;
 }
 
 .hero-tile.upcoming .tile-desc {
   color: var(--ink-faint);
-}
-
-.tile-stat {
-  font-size: 12.5px;
-  margin-top: 6px;
-  color: var(--ink);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
 
 .tile-status {
