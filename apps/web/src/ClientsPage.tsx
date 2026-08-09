@@ -593,8 +593,8 @@ export function ClientsPage({
             <thead>
               <tr>
                 <th>Name</th>
+                <th>Email</th>
                 <th>Case status</th>
-                <th>Variance</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -610,6 +610,7 @@ export function ClientsPage({
                           {client.name}
                         </button>
                       </td>
+                      <td>{client.email ?? "—"}</td>
                       <td>
                         <select
                           className={`status status-select ${caseStatusClass(client.caseStatus)}`}
@@ -623,7 +624,6 @@ export function ClientsPage({
                           ))}
                         </select>
                       </td>
-                      <td className={variance?.over ? "fee-variance-over" : undefined}>{variance?.label ?? "—"}</td>
                       <td>
                         <div className="row-actions">
                           <button type="button" onClick={() => startEdit(client)}>
@@ -631,6 +631,16 @@ export function ClientsPage({
                           </button>
                           <button type="button" className="secondary" onClick={() => onViewInvoices(client.id)}>
                             Invoices
+                          </button>
+                          <button type="button" className="secondary" onClick={() => setMode({ kind: "notes", id: client.id })}>
+                            Notes
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary"
+                            onClick={() => setMode({ kind: "documents", id: client.id })}
+                          >
+                            Documents
                           </button>
                           <button type="button" className="danger" onClick={() => handleDelete(client)}>
                             Delete
@@ -642,10 +652,6 @@ export function ClientsPage({
                       <tr className="client-detail-row">
                         <td colSpan={4}>
                           <div className="client-detail-grid">
-                            <div className="client-detail-field">
-                              <div className="l">Email</div>
-                              <div className="v">{client.email ?? "—"}</div>
-                            </div>
                             <div className="client-detail-field">
                               <div className="l">Summary</div>
                               <div className="v">{client.summary ?? "—"}</div>
@@ -682,22 +688,6 @@ export function ClientsPage({
                                 {variance?.label ?? "—"}
                               </div>
                             </div>
-                          </div>
-                          <div className="row-actions" style={{ marginTop: 14 }}>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setMode({ kind: "notes", id: client.id })}
-                            >
-                              Notes
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setMode({ kind: "documents", id: client.id })}
-                            >
-                              Documents
-                            </button>
                           </div>
                         </td>
                       </tr>
