@@ -92,6 +92,7 @@ idempotent data imports from the spreadsheet this app replaces.
 | 0022 | `0022_copy_2026_27_rates_to_2025_26.sql` | One-time explicit correction: overwrites 2025/26 rates with 2026/27's. |
 | 0023 | `0023_documents.sql` | Adds `document_categories`, `documents` (R2 pointer, AES-GCM `iv`, soft delete). |
 | 0024 | `0024_client_fee_estimate.sql` | Adds `clients.fee_estimate`/`fee_estimate_note` (both nullable). |
+| 0025 | `0025_user_full_name.sql` | Adds `users.full_name` (nullable — the pre-existing account sets it later via `PATCH /api/me`). |
 
 ### Current tables (23)
 
@@ -114,7 +115,7 @@ system, just signed-in-or-not (see [Auth model](#auth-model)).
 
 | Mount path | File | Endpoints |
 |---|---|---|
-| `/api` | `auth.ts` | `GET /setup/status`, `POST /setup`, `POST /register`, `POST /login`, `GET /me`, `POST /logout` |
+| `/api` | `auth.ts` | `GET /setup/status`, `POST /setup`, `POST /register`, `POST /login`, `GET /me`, `PATCH /me`, `POST /logout` |
 | `/api/account-settings` | `accountSettings.ts` | `GET /`, `PUT /` (invite code), `PUT /features` (dashboard tile toggles) |
 | `/api/client-categories` | `clientCategories.ts` | `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` |
 | `/api/client-notes` | `clientNotes.ts` | `GET /`, `GET /:id`, `POST /`, `POST /:id/versions` |
@@ -389,6 +390,12 @@ original README description):
   password" to avoid revealing account existence.
 - There is no role/permission system beyond signed-in-or-not — every account sees the
   same Admin & Settings screens.
+- **Display name**: `users.full_name` (nullable) is required on `/setup` and
+  `/register` going forward; the one account that predates the column sets it via
+  `PATCH /api/me` (`ProfileManager.tsx`, under Admin & Settings → Account → Your
+  name). `SignedInApp.tsx` uses it to show a time-of-day greeting ("Good
+  morning/afternoon/evening, {name}") in the header, computed from the browser's local
+  time; it falls back to showing the email when no name is set.
 
 ## Document storage & encryption
 

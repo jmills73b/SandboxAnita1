@@ -21,6 +21,13 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
 // clientId only ever matters for the "invoices" screen -- set when a
 // client's own "Invoices" link (see ClientsPage) jumps straight to their
 // history instead of the full ledger. Kept optional on every variant
@@ -30,9 +37,13 @@ type Screen = { kind: "hub" } | { kind: DashboardTile; clientId?: number };
 
 export function SignedInApp({
   email,
+  fullName,
+  onFullNameChanged,
   onLoggedOut,
 }: {
   email: string;
+  fullName: string | null;
+  onFullNameChanged: (fullName: string) => void;
   onLoggedOut: () => void;
 }) {
   const [screen, setScreen] = useState<Screen>({ kind: "hub" });
@@ -90,7 +101,7 @@ export function SignedInApp({
       <header className="page-header">
         <Brand onClick={screen.kind === "hub" ? undefined : goHome} />
         <div className="page-header-right">
-          <span className="who">{email}</span>
+          <span className="who">{fullName ? `${greeting()}, ${fullName}` : email}</span>
           <div className="page-header-buttons">
             <ThemeQuickSwitch />
             {!tasksDisabled && (
@@ -142,7 +153,14 @@ export function SignedInApp({
       )}
       {screen.kind === "tasks" && <TasksPage onBack={goHome} />}
       {screen.kind === "documents" && <AllDocumentsPage onBack={goHome} />}
-      {screen.kind === "admin" && <AdminPage onBack={goHome} onDisabledFeaturesChange={setDisabledFeatures} />}
+      {screen.kind === "admin" && (
+        <AdminPage
+          onBack={goHome}
+          onDisabledFeaturesChange={setDisabledFeatures}
+          fullName={fullName}
+          onFullNameChanged={onFullNameChanged}
+        />
+      )}
     </main>
   );
 }

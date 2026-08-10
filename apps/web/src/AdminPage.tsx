@@ -44,12 +44,13 @@ import { NoteCategoryManager } from "./NoteCategoryManager";
 import { InvoiceSettingsManager } from "./InvoiceSettingsManager";
 import { TaxRatesManager } from "./TaxRatesManager";
 import { InviteCodePanel } from "./InviteCodePanel";
+import { ProfileManager } from "./ProfileManager";
 import { UsagePanel } from "./UsagePanel";
 
 type Section = "categories" | "billing" | "account";
 type CategoriesTab = "clients" | "expenses" | "time" | "notes" | "documents";
 type BillingTab = "rates" | "invoice" | "tax";
-type AccountTab = "invite" | "export" | "usage" | "appearance" | "features" | "deletedDocuments";
+type AccountTab = "profile" | "invite" | "export" | "usage" | "appearance" | "features" | "deletedDocuments";
 
 const SECTIONS: Array<{ key: Section; label: string }> = [
   { key: "categories", label: "Categories" },
@@ -72,6 +73,7 @@ const BILLING_TABS: Array<{ key: BillingTab; label: string }> = [
 ];
 
 const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
+  { key: "profile", label: "Your name" },
   { key: "invite", label: "Invite code" },
   { key: "export", label: "Export data" },
   { key: "usage", label: "Usage" },
@@ -83,9 +85,13 @@ const ACCOUNT_TABS: Array<{ key: AccountTab; label: string }> = [
 export function AdminPage({
   onBack,
   onDisabledFeaturesChange,
+  fullName,
+  onFullNameChanged,
 }: {
   onBack: () => void;
   onDisabledFeaturesChange: (disabledFeatures: string[]) => void;
+  fullName: string | null;
+  onFullNameChanged: (fullName: string) => void;
 }) {
   const [section, setSection] = useState<Section>("categories");
   const [categoriesTab, setCategoriesTab] = useState<CategoriesTab>("clients");
@@ -176,6 +182,9 @@ export function AdminPage({
                   </button>
                 ))}
               </div>
+              {accountTab === "profile" && (
+                <ProfileManager fullName={fullName} onFullNameChanged={onFullNameChanged} />
+              )}
               {accountTab === "invite" && <InviteCodePanel />}
               {accountTab === "export" && <ExportDataTab />}
               {accountTab === "usage" && <UsagePanel />}

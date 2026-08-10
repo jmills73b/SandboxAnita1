@@ -8,7 +8,7 @@ type AppStatus =
   | { kind: "checking" }
   | { kind: "needs-setup" }
   | { kind: "signed-out" }
-  | { kind: "signed-in"; email: string };
+  | { kind: "signed-in"; email: string; fullName: string | null };
 
 export default function App() {
   const [status, setStatus] = useState<AppStatus>({ kind: "checking" });
@@ -22,7 +22,7 @@ export default function App() {
         }
         try {
           const user = await me();
-          setStatus({ kind: "signed-in", email: user.email });
+          setStatus({ kind: "signed-in", email: user.email, fullName: user.fullName });
         } catch {
           setStatus({ kind: "signed-out" });
         }
@@ -35,16 +35,26 @@ export default function App() {
   }
 
   if (status.kind === "needs-setup") {
-    return <SetupPage onComplete={(email) => setStatus({ kind: "signed-in", email })} />;
+    return (
+      <SetupPage
+        onComplete={(user) => setStatus({ kind: "signed-in", email: user.email, fullName: user.fullName })}
+      />
+    );
   }
 
   if (status.kind === "signed-out") {
-    return <LoginPage onLoggedIn={(email) => setStatus({ kind: "signed-in", email })} />;
+    return (
+      <LoginPage
+        onLoggedIn={(user) => setStatus({ kind: "signed-in", email: user.email, fullName: user.fullName })}
+      />
+    );
   }
 
   return (
     <SignedInApp
       email={status.email}
+      fullName={status.fullName}
+      onFullNameChanged={(fullName) => setStatus({ kind: "signed-in", email: status.email, fullName })}
       onLoggedOut={() => setStatus({ kind: "signed-out" })}
     />
   );

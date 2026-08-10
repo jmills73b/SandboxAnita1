@@ -42,24 +42,40 @@ export function getSetupStatus(): Promise<{ completed: boolean }> {
   return request("/api/setup/status");
 }
 
-export function setup(email: string, password: string): Promise<{ email: string }> {
-  return request("/api/setup", { method: "POST", body: JSON.stringify({ email, password }) });
+export function setup(
+  email: string,
+  password: string,
+  fullName: string,
+): Promise<{ email: string; fullName: string | null }> {
+  return request("/api/setup", { method: "POST", body: JSON.stringify({ email, password, fullName }) });
 }
 
-export function login(email: string, password: string): Promise<{ email: string }> {
+export function login(email: string, password: string): Promise<{ email: string; fullName: string | null }> {
   return request("/api/login", { method: "POST", body: JSON.stringify({ email, password }) });
 }
 
-export function register(email: string, password: string, inviteCode: string): Promise<{ email: string }> {
-  return request("/api/register", { method: "POST", body: JSON.stringify({ email, password, inviteCode }) });
+export function register(
+  email: string,
+  password: string,
+  inviteCode: string,
+  fullName: string,
+): Promise<{ email: string; fullName: string | null }> {
+  return request("/api/register", {
+    method: "POST",
+    body: JSON.stringify({ email, password, inviteCode, fullName }),
+  });
 }
 
 export function logout(): Promise<{ ok: boolean }> {
   return request("/api/logout", { method: "POST" });
 }
 
-export function me(): Promise<{ email: string }> {
+export function me(): Promise<{ email: string; fullName: string | null }> {
   return request("/api/me");
+}
+
+export function updateFullName(fullName: string): Promise<{ email: string; fullName: string | null }> {
+  return request("/api/me", { method: "PATCH", body: JSON.stringify({ fullName }) });
 }
 
 export function getClients(): Promise<Client[]> {
