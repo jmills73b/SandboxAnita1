@@ -6,8 +6,13 @@ const MIN_PASSWORD_LENGTH = 8;
 
 type Mode = "sign-in" | "join";
 
-export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void }) {
+export function LoginPage({
+  onLoggedIn,
+}: {
+  onLoggedIn: (user: { email: string; fullName: string | null }) => void;
+}) {
   const [mode, setMode] = useState<Mode>("sign-in");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -37,8 +42,9 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void 
 
     setSubmitting(true);
     try {
-      const user = mode === "sign-in" ? await login(email, password) : await register(email, password, inviteCode);
-      onLoggedIn(user.email);
+      const user =
+        mode === "sign-in" ? await login(email, password) : await register(email, password, inviteCode, fullName);
+      onLoggedIn(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -62,6 +68,18 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void 
         <p className="hint">You'll need an invite code from someone who already has access.</p>
       )}
       <form onSubmit={handleSubmit} className="form">
+        {mode === "join" && (
+          <label>
+            Full name
+            <input
+              type="text"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              required
+              autoFocus
+            />
+          </label>
+        )}
         <label>
           Email
           <input
@@ -69,7 +87,7 @@ export function LoginPage({ onLoggedIn }: { onLoggedIn: (email: string) => void 
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             required
-            autoFocus
+            autoFocus={mode === "sign-in"}
           />
         </label>
         <label>

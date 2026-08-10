@@ -4,7 +4,12 @@ import { Brand } from "./Brand";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-export function SetupPage({ onComplete }: { onComplete: (email: string) => void }) {
+export function SetupPage({
+  onComplete,
+}: {
+  onComplete: (user: { email: string; fullName: string | null }) => void;
+}) {
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,8 +31,8 @@ export function SetupPage({ onComplete }: { onComplete: (email: string) => void 
 
     setSubmitting(true);
     try {
-      const user = await setup(email, password);
-      onComplete(user.email);
+      const user = await setup(email, password, fullName);
+      onComplete(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -44,14 +49,18 @@ export function SetupPage({ onComplete }: { onComplete: (email: string) => void 
       </p>
       <form onSubmit={handleSubmit} className="form">
         <label>
-          Email
+          Full name
           <input
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            type="text"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
             required
             autoFocus
           />
+        </label>
+        <label>
+          Email
+          <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </label>
         <label>
           Password

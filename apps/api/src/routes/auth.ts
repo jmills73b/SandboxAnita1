@@ -20,9 +20,13 @@ auth.get("/setup/status", async (c) => {
 });
 
 auth.post("/setup", async (c) => {
-  const { email, password } = await c.req.json<{ email?: string; password?: string }>();
-  if (!email || !password) {
-    return c.json({ error: "Email and password are required" }, 400);
+  const { email, password, fullName } = await c.req.json<{
+    email?: string;
+    password?: string;
+    fullName?: string;
+  }>();
+  if (!email || !password || !fullName) {
+    return c.json({ error: "Email, password and full name are required" }, 400);
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
     return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
@@ -41,10 +45,10 @@ auth.post("/setup", async (c) => {
 
   const passwordHash = await hashPassword(password);
   const created = await c.env.DB.prepare(
-    "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email",
+    "INSERT INTO users (email, password_hash, full_name) VALUES (?, ?, ?) RETURNING id, email, full_name",
   )
-    .bind(email, passwordHash)
-    .first<{ id: number; email: string }>();
+    .bind(email, passwordHash, fullName)
+    .first<{ id: number; email: string; full_name: string | null }>();
 
   if (!created) {
     return c.json({ error: "Could not create the account" }, 500);
@@ -53,7 +57,7 @@ auth.post("/setup", async (c) => {
   // Signed straight in — no separate login step after creating the one
   // account this app will ever have.
   await issueSession(c, created.id);
-  return c.json({ email: created.email }, 201);
+  return c.json({ email: created.email, fullName: created.full_name }, 201);
 });
 
 // Open to anyone, unlike every other route here — there's no session yet
@@ -62,13 +66,14 @@ auth.post("/setup", async (c) => {
 // checked against the stored value below, so this can't be used to create
 // an account without it, even though the endpoint itself is public.
 auth.post("/register", async (c) => {
-  const { email, password, inviteCode } = await c.req.json<{
+  const { email, password, inviteCode, fullName } = await c.req.json<{
     email?: string;
     password?: string;
     inviteCode?: string;
+    fullName?: string;
   }>();
-  if (!email || !password || !inviteCode) {
-    return c.json({ error: "Email, password and invite code are required" }, 400);
+  if (!email || !password || !inviteCode || !fullName) {
+    return c.json({ error: "Email, password, full name and invite code are required" }, 400);
   }
   if (password.length < MIN_PASSWORD_LENGTH) {
     return c.json({ error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` }, 400);
@@ -88,17 +93,17 @@ auth.post("/register", async (c) => {
 
   const passwordHash = await hashPassword(password);
   const created = await c.env.DB.prepare(
-    "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id, email",
+    "INSERT INTO users (email, password_hash, full_name) VALUES (?, ?, ?) RETURNING id, email, full_name",
   )
-    .bind(email, passwordHash)
-    .first<{ id: number; email: string }>();
+    .bind(email, passwordHash, fullName)
+    .first<{ id: number; email: string; full_name: string | null }>();
 
   if (!created) {
     return c.json({ error: "Could not create the account" }, 500);
   }
 
   await issueSession(c, created.id);
-  return c.json({ email: created.email }, 201);
+  return c.json({ email: created.email, fullName: created.full_name }, 201);
 });
 
 auth.post("/login", async (c) => {
@@ -108,10 +113,10 @@ auth.post("/login", async (c) => {
   }
 
   const user = await c.env.DB.prepare(
-    "SELECT id, email, password_hash FROM users WHERE email = ?",
+    "SELECT id, email, password_hash, full_name FROM users WHERE email = ?",
   )
     .bind(email)
-    .first<{ id: number; email: string; password_hash: string }>();
+    .first<{ id: number; email: string; password_hash: string; full_name: string | null }>();
 
   const valid = user ? await verifyPassword(password, user.password_hash) : false;
   if (!user || !valid) {
@@ -121,16 +126,35 @@ auth.post("/login", async (c) => {
   }
 
   await issueSession(c, user.id);
-  return c.json({ email: user.email });
+  return c.json({ email: user.email, fullName: user.full_name });
 });
 
 auth.get("/me", requireAuth, async (c) => {
   const userId = c.get("userId");
-  const user = await c.env.DB.prepare("SELECT email FROM users WHERE id = ?")
+  const user = await c.env.DB.prepare("SELECT email, full_name FROM users WHERE id = ?")
     .bind(userId)
-    .first<{ email: string }>();
+    .first<{ email: string; full_name: string | null }>();
   if (!user) return c.json({ error: "Not signed in" }, 401);
-  return c.json({ email: user.email });
+  return c.json({ email: user.email, fullName: user.full_name });
+});
+
+// Lets an already-registered user set or change their own display name —
+// the only way for an account created before this column existed to get
+// one, since /setup and /register only ever run once per account.
+auth.patch("/me", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const { fullName } = await c.req.json<{ fullName?: string }>();
+  if (!fullName || !fullName.trim()) {
+    return c.json({ error: "Full name is required" }, 400);
+  }
+
+  const updated = await c.env.DB.prepare(
+    "UPDATE users SET full_name = ? WHERE id = ? RETURNING email, full_name",
+  )
+    .bind(fullName.trim(), userId)
+    .first<{ email: string; full_name: string | null }>();
+  if (!updated) return c.json({ error: "Not signed in" }, 401);
+  return c.json({ email: updated.email, fullName: updated.full_name });
 });
 
 auth.post("/logout", (c) => {

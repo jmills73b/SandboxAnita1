@@ -11,6 +11,7 @@ test("create account, add an invoice, see it on the ledger", async ({ page }) =>
 
   await page.goto("/");
 
+  await page.getByLabel("Full name").fill("E2E Test User");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm password").fill(password);
